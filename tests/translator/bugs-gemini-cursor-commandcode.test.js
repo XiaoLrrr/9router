@@ -62,15 +62,16 @@ describe("OpenAI → CommandCode", () => {
     expect(Object.keys(call.input).length, "arguments silently dropped to {}").toBeGreaterThan(0);
   });
 
-  // openai-to-commandcode.js:41-42 — image becomes "[image omitted]"
-  // KNOWN BUG
-  it.fails("image content is preserved", () => {
+  it("image content is preserved", () => {
     const out = O2CC({
       messages: [{ role: "user", content: [
         { type: "text", text: "look" },
         { type: "image_url", image_url: { url: "data:image/png;base64,BBBB" } },
       ] }],
     });
-    expect(JSON.stringify(out), "image omitted").toContain("BBBB");
+    expect(out.params.messages[0].content[1]).toEqual({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: "BBBB" },
+    });
   });
 });
