@@ -42,7 +42,7 @@ export const DEFAULT_CAPABILITIES = {
   tools: true,          // function / tool calling
   reasoning: false,     // thinking / reasoning
   // thinking wire format (only meaningful when reasoning:true). null → derive from transport.format.
-  // enum: openai|claude-adaptive|claude-budget|gemini-level|gemini-budget|zai|qwen|deepseek|kimi|minimax|hunyuan|step
+  // enum: openai|commandcode|claude-adaptive|claude-budget|gemini-level|gemini-budget|zai|qwen|deepseek|kimi|minimax|hunyuan|step
   thinkingFormat: null,
   thinkingCanDisable: true,  // false → model cannot turn thinking off (clamp to min instead of disable)
   thinkingRange: null,       // { min, max } for budget formats; null = no clamp
@@ -121,6 +121,27 @@ const CODEX_GPT_56_DEFAULT_CAPS = { vision: true, reasoning: true, search: true,
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
 export const PROVIDER_CAPABILITIES = {
+  // CommandCode /alpha/generate accepts image blocks and exposes four
+  // reasoning_effort levels. DeepSeek V4 Flash vision was verified live
+  // through this route; Pro shares the same CommandCode transport contract.
+  "commandcode": {
+    "deepseek/deepseek-v4-pro": {
+      vision: true,
+      reasoning: true,
+      thinkingFormat: "commandcode",
+      thinkingCanDisable: false,
+      contextWindow: 1000000,
+      maxOutput: 384000,
+    },
+    "deepseek/deepseek-v4-flash": {
+      vision: true,
+      reasoning: true,
+      thinkingFormat: "commandcode",
+      thinkingCanDisable: false,
+      contextWindow: 1000000,
+      maxOutput: 384000,
+    },
+  },
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
   "nvidia": {

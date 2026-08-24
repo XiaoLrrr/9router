@@ -15,6 +15,7 @@ import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK } from "../schema/index.js";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
 import { parseDataUri } from "../concerns/image.js";
+import { parseSuffix } from "../concerns/thinkingUnified.js";
 
 function flattenText(content) {
   if (content == null) return "";
@@ -64,7 +65,7 @@ function toContentBlocks(content) {
 function safeParseJson(s) {
   if (s == null) return {};
   if (typeof s !== "string") return s;
-  try { return JSON.parse(s); } catch { return {}; }
+  try { return JSON.parse(s); } catch { return { raw: s }; }
 }
 
 function convertMessages(messages = []) {
@@ -142,10 +143,41 @@ function convertTools(tools) {
   return result.length ? result : undefined;
 }
 
+const COMMANDCODE_EFFORTS = {
+  minimal: "low",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "max",
+  max: "max",
+  ultra: "max",
+};
+
+function commandCodeReasoningEffort(body, suffixOverride) {
+  const reasoning = body.reasoning;
+  if (reasoning && typeof reasoning === "object" && !Array.isArray(reasoning)) {
+    if (reasoning.enabled === false) return null;
+    const effort = String(reasoning.effort || "medium").toLowerCase();
+    return COMMANDCODE_EFFORTS[effort] || null;
+  }
+
+  if (body.reasoning_effort != null) {
+    const effort = String(body.reasoning_effort).toLowerCase();
+    if (!effort || effort === "none") return null;
+    return COMMANDCODE_EFFORTS[effort] || null;
+  }
+
+  return suffixOverride?.mode === "level"
+    ? COMMANDCODE_EFFORTS[suffixOverride.level] || null
+    : null;
+}
+
 export function openaiToCommandCodeRequest(model, body, stream /* , credentials */) {
+  const suffix = parseSuffix(model);
+  const cleanModel = suffix.override ? suffix.cleanModel : model;
   const { messages, system } = convertMessages(body.messages);
   const params = {
-    model,
+    model: cleanModel,
     messages,
     stream: stream !== false,
     max_tokens: body.max_tokens ?? body.max_output_tokens ?? DEFAULT_MAX_TOKENS,
@@ -157,6 +189,8 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
   const tools = convertTools(body.tools);
   if (tools) params.tools = tools;
   if (body.top_p != null) params.top_p = body.top_p;
+  const reasoningEffort = commandCodeReasoningEffort(body, suffix.override);
+  if (reasoningEffort) params.reasoning_effort = reasoningEffort;
 
   const today = new Date().toISOString().slice(0, 10);
 

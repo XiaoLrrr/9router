@@ -179,3 +179,52 @@ describe("openaiToCommandCodeRequest — tools schema conversion", () => {
     expect(out.params.tools).toBeUndefined();
   });
 });
+
+describe("openaiToCommandCodeRequest — reasoning effort", () => {
+  it.each([
+    ["minimal", "low"],
+    ["low", "low"],
+    ["medium", "medium"],
+    ["high", "high"],
+    ["xhigh", "max"],
+    ["max", "max"],
+    ["ultra", "max"],
+  ])("maps Hermes reasoning %s to CommandCode %s", (requested, expected) => {
+    const out = openaiToCommandCodeRequest(MODEL, {
+      messages: [{ role: "user", content: "hi" }],
+      reasoning: { enabled: true, effort: requested },
+    }, true);
+    expect(out.params.reasoning_effort).toBe(expected);
+  });
+
+  it("omits disabled and unknown reasoning efforts", () => {
+    const disabled = openaiToCommandCodeRequest(MODEL, {
+      messages: [{ role: "user", content: "hi" }],
+      reasoning: { enabled: false, effort: "high" },
+    }, true);
+    const unknown = openaiToCommandCodeRequest(MODEL, {
+      messages: [{ role: "user", content: "hi" }],
+      reasoning: { enabled: true, effort: "not-real" },
+    }, true);
+    expect(disabled.params.reasoning_effort).toBeUndefined();
+    expect(unknown.params.reasoning_effort).toBeUndefined();
+  });
+
+  it("uses a model suffix when Hermes omits reasoning for a custom endpoint", () => {
+    const out = openaiToCommandCodeRequest(`${MODEL}(low)`, {
+      messages: [{ role: "user", content: "hi" }],
+    }, true);
+
+    expect(out.params.model).toBe(MODEL);
+    expect(out.params.reasoning_effort).toBe("low");
+  });
+
+  it("prefers an explicit effort over the model suffix", () => {
+    const out = openaiToCommandCodeRequest(`${MODEL}(low)`, {
+      messages: [{ role: "user", content: "hi" }],
+      reasoning_effort: "high",
+    }, true);
+
+    expect(out.params.reasoning_effort).toBe("high");
+  });
+});

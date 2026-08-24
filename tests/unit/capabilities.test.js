@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 
 describe("getCapabilitiesForModel", () => {
   const claudeSonnet5Expected = {
@@ -54,5 +55,18 @@ describe("getCapabilitiesForModel", () => {
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-terra-thinking")).toMatchObject(kiroGpt56Expected);
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-luna-agentic")).toMatchObject(kiroGpt56Expected);
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-sol-thinking-agentic")).toMatchObject(kiroGpt56Expected);
+  });
+
+  it("reports verified CommandCode DeepSeek V4 metadata", () => {
+    expect(getCapabilitiesForModel("commandcode", "deepseek/deepseek-v4-flash")).toMatchObject({
+      vision: true,
+      reasoning: true,
+      thinkingFormat: "commandcode",
+      thinkingCanDisable: false,
+      contextWindow: 1000000,
+      maxOutput: 384000,
+    });
+    expect(getThinkingLevels("commandcode", "deepseek/deepseek-v4-flash"))
+      .toEqual(["low", "medium", "high", "max"]);
   });
 });
