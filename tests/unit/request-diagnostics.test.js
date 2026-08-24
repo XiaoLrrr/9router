@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarizeRequestFlow } from "../../open-sse/utils/requestDiagnostics.js";
+import { __test__ as requestDetailsTest } from "../../src/lib/db/repos/requestDetailsRepo.js";
 
 describe("request diagnostics", () => {
   it("shows normalized reasoning and preserved images without retaining content", () => {
@@ -38,5 +39,22 @@ describe("request diagnostics", () => {
       { params: { messages: [] } },
     );
     expect(summary.result.reasoning).toBe("omitted");
+  });
+
+  it("keeps diagnostic summaries in the stored request record", () => {
+    const requestFlow = { result: { reasoning: "forwarded" } };
+    const responseConfig = { hasThinking: true };
+    const stored = requestDetailsTest.buildStoredRecord(
+      {
+        id: "detail-1",
+        timestamp: "2026-08-24T00:00:00.000Z",
+        requestFlow,
+        responseConfig,
+      },
+      5120
+    );
+
+    expect(stored.requestFlow).toEqual(requestFlow);
+    expect(stored.responseConfig).toEqual(responseConfig);
   });
 });
