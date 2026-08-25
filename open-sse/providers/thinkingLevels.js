@@ -18,7 +18,7 @@ const L = {
 // thinkingFormat → valid selectable levels (source of truth for UI options).
 const FORMAT_LEVELS = {
   openai: L.openai,
-  commandcode: ["low", "medium", "high", "max"],
+  commandcode: ["none", "low", "medium", "high"],
   "claude-adaptive": L.levelMax,
   "claude-budget": L.budgetX,
   "gemini-level": L.gemini,
@@ -36,6 +36,12 @@ const CODEX_GPT_5_6_LEVELS = ["none", "minimal", "low", "medium", "high", "xhigh
 
 // Model-name pattern overrides (glob, first match wins) — more precise than format default.
 const PATTERN_THINKING = [
+  { provider: "commandcode", pattern: "gpt-5.6-luna", levels: ["none", "low", "medium", "high", "xhigh", "max"] },
+  { provider: "commandcode", pattern: "deepseek/deepseek-v4*", levels: ["none", "low", "high", "max"] },
+  { provider: "commandcode", pattern: "zai-org/glm-5.3", levels: ["none", "low", "high", "max"] },
+  { provider: "commandcode", pattern: "zai-org/glm-5.2", levels: ["none", "high", "max"] },
+  { provider: "commandcode", pattern: "qwen/qwen3.8-*", levels: ["none", "low", "medium", "xhigh"] },
+  { provider: "commandcode", pattern: "stealth/ox-alpha", levels: ["none", "low", "high", "max"] },
   { provider: "codex", pattern: "*gpt-5.6-sol*", levels: [...CODEX_GPT_5_6_LEVELS, "ultra"] },
   { provider: "codex", pattern: "*gpt-5.6-terra*", levels: [...CODEX_GPT_5_6_LEVELS, "ultra"] },
   { provider: "codex", pattern: "*gpt-5.6-luna*", levels: CODEX_GPT_5_6_LEVELS },

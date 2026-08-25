@@ -227,4 +227,23 @@ describe("openaiToCommandCodeRequest — reasoning effort", () => {
 
     expect(out.params.reasoning_effort).toBe("high");
   });
+
+  it("maps unsupported DeepSeek medium effort to high", () => {
+    const out = openaiToCommandCodeRequest("deepseek/deepseek-v4-pro", {
+      messages: [{ role: "user", content: "hi" }],
+      reasoning_effort: "medium",
+    }, true);
+
+    expect(out.params.reasoning_effort).toBe("high");
+  });
+
+  it("preserves native xhigh for GPT-5.6 Luna and Qwen 3.8", () => {
+    for (const model of ["gpt-5.6-luna", "Qwen/Qwen3.8-Max"]) {
+      const out = openaiToCommandCodeRequest(model, {
+        messages: [{ role: "user", content: "hi" }],
+        reasoning_effort: "xhigh",
+      }, true);
+      expect(out.params.reasoning_effort).toBe("xhigh");
+    }
+  });
 });

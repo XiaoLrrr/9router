@@ -11,6 +11,7 @@
 | `d85f670c` | 功能 | 补充 CommandCode 模型能力、思考档位转发和请求诊断 |
 | `885b00e0` | 构建 | 隔离 Next.js 生产构建与本地运行状态，降低构建 OOM 风险 |
 | `1b412d17` | 修复 | 将请求配置和响应证据真正写入请求详情存储 |
+| 当前补丁 | 功能 | 固化 CommandCode Go 全量模型及逐模型能力、推理档位 |
 
 ## 40897527：保留图片内容块
 
@@ -144,6 +145,18 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
 
 新产生的请求详情会持久保存诊断摘要。旧记录若未保存这些字段，只能由仍存在的脱敏前
 请求数据临时推导，不能凭空恢复历史上游请求。
+
+## 当前补丁：CommandCode Go 模型目录
+
+- 固化官网当前 Go 目录的 37 个模型，包括新增的 Ling 3.0 Flash Free。
+- `contextWindow`、视觉和推理能力与 CommandCode 模型页服务端数据逐项校验。
+- 官网公开的推理档位按模型返回；未公开档位的推理模型保守返回
+  `low`、`medium`、`high`。
+- DeepSeek V4 按原生接口返回 `low`、`high`、`max`，并将外部传入的
+  `medium` 兼容映射为 `high`。
+- `/v1/models` 同时返回顶层 `reasoning_efforts` 和嵌套
+  `reasoning.supported_efforts`；`none` 只表示关闭思考，不作为强度返回。
+- 此节覆盖上文 `d85f670c` 中仅针对两个 DeepSeek 模型和通用四档的旧说明。
 
 ## 验证记录
 

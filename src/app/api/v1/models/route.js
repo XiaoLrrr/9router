@@ -533,8 +533,10 @@ export async function buildModelsList(kindFilter, options = {}) {
             ...(caps.reasoning ? ["reasoning"] : []),
           ];
           if (thinkingLevels) {
+            const supportedEfforts = thinkingLevels.filter((level) => level !== "none" && level !== "thinking");
+            model.reasoning_efforts = supportedEfforts;
             model.reasoning = {
-              supported_efforts: thinkingLevels,
+              supported_efforts: supportedEfforts,
               mandatory: caps.thinkingCanDisable === false,
             };
           }
