@@ -15,7 +15,7 @@ import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK } from "../schema/index.js";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
 import { parseDataUri } from "../concerns/image.js";
-import { parseSuffix } from "../concerns/thinkingUnified.js";
+import { applyThinking, extractThinking, parseSuffix } from "../concerns/thinkingUnified.js";
 
 function flattenText(content) {
   if (content == null) return "";
@@ -143,41 +143,6 @@ function convertTools(tools) {
   return result.length ? result : undefined;
 }
 
-const COMMANDCODE_EFFORTS = {
-  minimal: "low",
-  low: "low",
-  medium: "medium",
-  high: "high",
-  xhigh: "xhigh",
-  max: "max",
-  ultra: "max",
-};
-
-function mapCommandCodeEffort(effort, model) {
-  const requested = String(effort).toLowerCase();
-  const mapped = COMMANDCODE_EFFORTS[requested] || null;
-  if (/^deepseek\/deepseek-v4/i.test(model) && mapped === "medium") return "high";
-  return mapped === "xhigh" && !/^(gpt-5\.6-luna|qwen\/qwen3\.8-)/i.test(model) ? "max" : mapped;
-}
-
-function commandCodeReasoningEffort(body, suffixOverride, model) {
-  const reasoning = body.reasoning;
-  if (reasoning && typeof reasoning === "object" && !Array.isArray(reasoning)) {
-    if (reasoning.enabled === false) return null;
-    return mapCommandCodeEffort(reasoning.effort || "medium", model);
-  }
-
-  if (body.reasoning_effort != null) {
-    const effort = String(body.reasoning_effort).toLowerCase();
-    if (!effort || effort === "none") return null;
-    return mapCommandCodeEffort(effort, model);
-  }
-
-  return suffixOverride?.mode === "level"
-    ? mapCommandCodeEffort(suffixOverride.level, model)
-    : null;
-}
-
 export function openaiToCommandCodeRequest(model, body, stream /* , credentials */) {
   const suffix = parseSuffix(model);
   const cleanModel = suffix.override ? suffix.cleanModel : model;
@@ -195,12 +160,10 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
   const tools = convertTools(body.tools);
   if (tools) params.tools = tools;
   if (body.top_p != null) params.top_p = body.top_p;
-  const reasoningEffort = commandCodeReasoningEffort(body, suffix.override, cleanModel);
-  if (reasoningEffort) params.reasoning_effort = reasoningEffort;
 
   const today = new Date().toISOString().slice(0, 10);
 
-  return {
+  const result = {
     threadId: randomUUID(),
     memory: "",
     config: {
@@ -216,6 +179,12 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
     },
     params,
   };
+  const intent = body.reasoning && typeof body.reasoning === "object"
+    ? (body.reasoning.enabled === false
+      ? { mode: "none" }
+      : { mode: "level", level: body.reasoning.effort || "medium" })
+    : extractThinking(body) || suffix.override;
+  return applyThinking(FORMATS.COMMANDCODE, cleanModel, result, "commandcode", intent);
 }
 
 register(FORMATS.OPENAI, FORMATS.COMMANDCODE, openaiToCommandCodeRequest, null);

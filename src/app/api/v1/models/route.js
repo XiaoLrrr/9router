@@ -495,15 +495,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         if (kind === LLM_KIND || allowAsLlm) {
           const fallback = getCapabilitiesForModel(providerId, modelId);
           caps = { ...fallback, ...(caps || {}) };
-          let contextWindow = caps.contextWindow;
-          let maxOutput = caps.maxOutput;
-          // Live-catalog and service-kind capabilities are usually partial
-          // (often just { tools: true }), so fill the gaps from the static
-          // table rather than emitting null and leaving clients to guess.
-          if (!Number.isFinite(contextWindow) || !Number.isFinite(maxOutput)) {
-            if (!Number.isFinite(contextWindow)) contextWindow = fallback.contextWindow;
-            if (!Number.isFinite(maxOutput)) maxOutput = fallback.maxOutput;
-          }
+          const { contextWindow, maxOutput } = caps;
           if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
           if (Number.isFinite(maxOutput)) {
             model.max_completion_tokens = maxOutput;

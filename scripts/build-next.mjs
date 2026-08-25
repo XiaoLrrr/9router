@@ -1,14 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const buildHomeRoot = join(process.cwd(), "cli", ".build-home");
-mkdirSync(buildHomeRoot, { recursive: true });
-const buildHome = mkdtempSync(join(buildHomeRoot, "build-"));
-const appData = join(buildHome, "AppData", "Roaming");
-const localAppData = join(buildHome, "AppData", "Local");
-mkdirSync(appData, { recursive: true });
-mkdirSync(localAppData, { recursive: true });
+const buildHome = mkdtempSync(join(tmpdir(), "9router-build-"));
 
 try {
   const result = spawnSync(
@@ -20,8 +15,8 @@ try {
         ...process.env,
         HOME: buildHome,
         USERPROFILE: buildHome,
-        APPDATA: appData,
-        LOCALAPPDATA: localAppData,
+        APPDATA: buildHome,
+        LOCALAPPDATA: buildHome,
       },
     },
   );

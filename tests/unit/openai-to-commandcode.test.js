@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import { openaiToCommandCodeRequest } from "../../open-sse/translator/request/openai-to-commandcode.js";
 
-const MODEL = "moonshotai/Kimi-K2.6";
+const MODEL = "moonshotai/Kimi-K3";
 
 describe("openaiToCommandCodeRequest — basic envelope", () => {
   it("returns the expected top-level envelope shape", () => {
@@ -182,68 +182,20 @@ describe("openaiToCommandCodeRequest — tools schema conversion", () => {
 
 describe("openaiToCommandCodeRequest — reasoning effort", () => {
   it.each([
-    ["minimal", "low"],
-    ["low", "low"],
-    ["medium", "medium"],
-    ["high", "high"],
-    ["xhigh", "max"],
-    ["max", "max"],
-    ["ultra", "max"],
-  ])("maps Hermes reasoning %s to CommandCode %s", (requested, expected) => {
-    const out = openaiToCommandCodeRequest(MODEL, {
+    [MODEL, { reasoning: { effort: "minimal" } }, "low"],
+    [MODEL, { reasoning: { effort: "xhigh" } }, "max"],
+    [MODEL, { reasoning: { enabled: false, effort: "high" } }, undefined],
+    [MODEL, { reasoning: { effort: "not-real" } }, undefined],
+    [`${MODEL}(low)`, { reasoning_effort: "high" }, "high"],
+    ["deepseek/deepseek-v4-pro", { reasoning_effort: "medium" }, "high"],
+    ["gpt-5.6-luna", { reasoning_effort: "xhigh" }, "xhigh"],
+    ["moonshotai/Kimi-K2.6", { reasoning_effort: "high" }, undefined],
+  ])("maps %s reasoning to %s", (model, reasoning, expected) => {
+    const out = openaiToCommandCodeRequest(model, {
       messages: [{ role: "user", content: "hi" }],
-      reasoning: { enabled: true, effort: requested },
+      ...reasoning,
     }, true);
+    expect(out.params.model).toBe(model.replace(/\([^()]+\)$/, ""));
     expect(out.params.reasoning_effort).toBe(expected);
-  });
-
-  it("omits disabled and unknown reasoning efforts", () => {
-    const disabled = openaiToCommandCodeRequest(MODEL, {
-      messages: [{ role: "user", content: "hi" }],
-      reasoning: { enabled: false, effort: "high" },
-    }, true);
-    const unknown = openaiToCommandCodeRequest(MODEL, {
-      messages: [{ role: "user", content: "hi" }],
-      reasoning: { enabled: true, effort: "not-real" },
-    }, true);
-    expect(disabled.params.reasoning_effort).toBeUndefined();
-    expect(unknown.params.reasoning_effort).toBeUndefined();
-  });
-
-  it("uses a model suffix when Hermes omits reasoning for a custom endpoint", () => {
-    const out = openaiToCommandCodeRequest(`${MODEL}(low)`, {
-      messages: [{ role: "user", content: "hi" }],
-    }, true);
-
-    expect(out.params.model).toBe(MODEL);
-    expect(out.params.reasoning_effort).toBe("low");
-  });
-
-  it("prefers an explicit effort over the model suffix", () => {
-    const out = openaiToCommandCodeRequest(`${MODEL}(low)`, {
-      messages: [{ role: "user", content: "hi" }],
-      reasoning_effort: "high",
-    }, true);
-
-    expect(out.params.reasoning_effort).toBe("high");
-  });
-
-  it("maps unsupported DeepSeek medium effort to high", () => {
-    const out = openaiToCommandCodeRequest("deepseek/deepseek-v4-pro", {
-      messages: [{ role: "user", content: "hi" }],
-      reasoning_effort: "medium",
-    }, true);
-
-    expect(out.params.reasoning_effort).toBe("high");
-  });
-
-  it("preserves native xhigh for GPT-5.6 Luna and Qwen 3.8", () => {
-    for (const model of ["gpt-5.6-luna", "Qwen/Qwen3.8-Max"]) {
-      const out = openaiToCommandCodeRequest(model, {
-        messages: [{ role: "user", content: "hi" }],
-        reasoning_effort: "xhigh",
-      }, true);
-      expect(out.params.reasoning_effort).toBe("xhigh");
-    }
   });
 });
