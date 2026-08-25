@@ -1,0 +1,80 @@
+name: Sync patched master
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-patched-master
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Rebuild patched master
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git remote add upstream https://github.com/decolua/9router.git
+          git fetch --no-tags --depth=1 upstream +refs/heads/master:refs/remotes/upstream/master
+          git fetch --no-tags --depth=20 origin +refs/heads/patch-source:refs/remotes/origin/patch-source
+          git fetch --no-tags --depth=1 origin +refs/heads/master:refs/remotes/origin/master
+          git switch --force-create master upstream/master
+          git cherry-pick \
+            40897527b12abf9243d975fde1eaccf432fcfe96 \
+            d85f670c81dc5e047a21e215733ddfed1e91107e \
+            885b00e06cfbdc209419bcc22c913142cfef1ca1 \
+            1b412d17d617cf063be714e64fa84a6557ed4699 \
+            3c0b3829e467175d15d6e577b37eab409a29727a \
+            7112100c0213331dd4c71a4bd537a41aadb7de17
+          git show origin/patch-source:.github/workflows/sync-patched-master.yml \
+            > .github/workflows/sync-patched-master.yml
+          git add .github/workflows/sync-patched-master.yml
+          git commit -m "ci: sync patched master from upstream"
+          if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse origin/master^{tree})" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.patch.outputs.changed == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          npm ci
+          npm --prefix tests ci
+
+      - name: Test patches
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          cd tests
+          npx vitest run \
+            unit/request-diagnostics.test.js \
+            unit/openai-to-commandcode.test.js \
+            unit/capabilities.test.js
+          npx vitest run translator/bugs-gemini-cursor-commandcode.test.js \
+            -t "OpenAI → Gemini|OpenAI → CommandCode"
+
+      - name: Build production app
+        if: steps.patch.outputs.changed == 'true'
+        run: npm run build
+
+      - name: Publish fork master
+        if: steps.patch.outputs.changed == 'true'
+        run: git push --force origin HEAD:master
