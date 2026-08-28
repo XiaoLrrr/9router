@@ -82,6 +82,31 @@ describe("BaseExecutor.execute — network error retry/fallback", () => {
     expect(thrown?.message).toBe("boom");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("does not replay a failed TLS fingerprint POST", async () => {
+    const ex = makeExec({
+      baseUrls: ["https://a/api", "https://b/api"],
+      retry: { 502: { attempts: 2, delayMs: 0 } },
+      tlsFingerprint: { browser: "chrome_124", os: "macos" },
+    });
+    const error = new Error("TLS failed");
+    error.tlsFingerprintFailed = true;
+    fetchMock.mockRejectedValueOnce(error);
+
+    await expect(ex.execute({
+      model: "m",
+      body: {},
+      stream: false,
+      credentials: { ...creds, connectionId: "conn-1" },
+    })).rejects.toThrow("TLS failed");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][3]).toEqual({
+      browser: "chrome_124",
+      os: "macos",
+      sessionScope: "conn-1",
+    });
+  });
 });
 
 describe("BaseExecutor.execute — computeRetryDelay hook veto", () => {
