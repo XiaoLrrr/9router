@@ -26,6 +26,10 @@ export default {
       "x-command-code-version": "0.25.7",
       "x-cli-environment": "cli",
     },
+    tlsFingerprint: {
+      browser: "chrome_124",
+      os: "macos",
+    },
   },
   models: [
     { id: "stealth/ox-alpha", name: "Ox Alpha" },
