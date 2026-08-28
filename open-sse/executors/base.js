@@ -146,7 +146,10 @@ export class BaseExecutor {
           headers,
           body: bodyStr,
           signal: mergedSignal
-        }, proxyOptions);
+        }, proxyOptions, this.config.tlsFingerprint ? {
+          ...this.config.tlsFingerprint,
+          sessionScope: credentials?.connectionId || this.provider,
+        } : null);
         clearTimeout(connectTimer);
         const ct = response.headers?.get?.("content-type") || "";
         const cl = response.headers?.get?.("content-length") || "?";
@@ -165,14 +168,15 @@ export class BaseExecutor {
         clearTimeout(connectTimer);
         lastError = error;
         const isConnectTimeout = connectCtrl.signal.aborted && error.name === "AbortError";
+        const isTlsFingerprintFailure = error?.tlsFingerprintFailed === true;
         dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${isConnectTimeout ? " (connect timeout)" : ""}`);
         // Connect timeout is internal — convert to retryable network error, don't propagate AbortError
         if (error.name === "AbortError" && !isConnectTimeout) throw error;
 
         // Map network/fetch exceptions to 502 retry config
-        if (await tryRetry(urlIndex, HTTP_STATUS.BAD_GATEWAY, `network "${error.message}"`)) { urlIndex--; continue; }
+        if (!isTlsFingerprintFailure && await tryRetry(urlIndex, HTTP_STATUS.BAD_GATEWAY, `network "${error.message}"`)) { urlIndex--; continue; }
 
-        if (urlIndex + 1 < fallbackCount) {
+        if (!isTlsFingerprintFailure && urlIndex + 1 < fallbackCount) {
           log?.debug?.("RETRY", `Error on ${url}, trying fallback ${urlIndex + 1}`);
           continue;
         }

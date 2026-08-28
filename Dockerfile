@@ -40,6 +40,9 @@ COPY --from=builder /app/node_modules/next ./node_modules/next
 # sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
 # so the last-resort DB driver would abort with ENOENT on the missing binary.
 COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
+# wreq-js is optional and dynamically imported, so Next tracing cannot include its native binding.
+COPY --from=builder /app/node_modules/wreq-js ./node_modules/wreq-js
+COPY --from=builder /app/node_modules/@wreq-js ./node_modules/@wreq-js
 
 RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \
