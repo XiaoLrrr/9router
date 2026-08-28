@@ -29,6 +29,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  adapter?.close();
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -248,5 +249,37 @@ describe("API route contract — validation boundary", () => {
     const body = await res.json();
     expect(Array.isArray(body.details)).toBe(true);
     expect(body.pagination).toMatchObject({ page: 1, pageSize: 20 });
+  });
+
+  it("returns the selected provider key name without exposing its secret", async () => {
+    const connection = await db.createProviderConnection({
+      provider: "commandcode",
+      authType: "apikey",
+      name: "CommandCode Key 2",
+      apiKey: "secret-commandcode-key",
+    });
+    const detailRecord = {
+      id: "commandcode-key-detail",
+      provider: "commandcode",
+      model: "deepseek/deepseek-v4-pro",
+      connectionId: connection.id,
+      timestamp: new Date().toISOString(),
+      status: "success",
+      tokens: {},
+      request: {},
+      response: {},
+    };
+    adapter.run(
+      `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+      [detailRecord.id, detailRecord.timestamp, detailRecord.provider, detailRecord.model, detailRecord.connectionId, detailRecord.status, JSON.stringify(detailRecord)]
+    );
+
+    const res = await GET(makeReq("provider=commandcode"));
+    const body = await res.json();
+    const detail = body.details.find((item) => item.id === "commandcode-key-detail");
+
+    expect(detail.providerKeyName).toBe("CommandCode Key 2");
+    expect(detail.providerKeyMasked).toBe("secret-c***");
+    expect(JSON.stringify(detail)).not.toContain("secret-commandcode-key");
   });
 });
