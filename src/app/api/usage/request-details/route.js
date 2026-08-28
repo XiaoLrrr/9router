@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestDetails } from "@/lib/usageDb";
+import { getProviderConnections } from "@/lib/localDb";
 import { summarizeRequestFlow, summarizeResponseConfig } from "open-sse/utils/requestDiagnostics.js";
 
 /**
@@ -48,6 +49,16 @@ export async function GET(request) {
     if (endDate) filter.endDate = endDate;
     
     const result = await getRequestDetails(filter);
+    const connections = await getProviderConnections();
+    const providerKeys = Object.fromEntries(connections.map((connection) => [
+      connection.id,
+      {
+        name: connection.displayName || connection.name || connection.email || connection.id.slice(0, 8),
+        masked: typeof connection.apiKey === "string"
+          ? `${connection.apiKey.slice(0, connection.apiKey.length <= 8 ? 1 : 8)}***`
+          : null,
+      },
+    ]));
 
     // Redact conversation payloads: the stored details include full request
     // bodies (user prompts, tool calls) and provider responses. Returning them
@@ -56,6 +67,11 @@ export async function GET(request) {
     // metadata (model, tokens, latency, status) but drop message content.
     const redactedDetails = (result.details || []).map((d) => {
       const redacted = { ...d };
+      if (d.connectionId) {
+        const providerKey = providerKeys[d.connectionId];
+        redacted.providerKeyName = providerKey?.name || d.connectionId.slice(0, 8);
+        redacted.providerKeyMasked = providerKey?.masked || null;
+      }
       redacted.requestFlow ||= summarizeRequestFlow(d.request, d.providerRequest);
       redacted.responseConfig ||= summarizeResponseConfig(d.response);
       for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
