@@ -4,6 +4,65 @@ import { dbg } from "./debugLog.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
+const tlsFingerprintSessions = new Map();
+let wreqCreateSessionPromise = null;
+
+async function getWreqCreateSession() {
+  if (!wreqCreateSessionPromise) {
+    wreqCreateSessionPromise = import("wreq-js")
+      .then((mod) => mod.createSession)
+      .catch((error) => {
+        console.warn(`[ProxyFetch] wreq-js unavailable, using native TLS: ${error.message}`);
+        return null;
+      });
+  }
+  return wreqCreateSessionPromise;
+}
+
+async function tlsFingerprintFetch(url, options, fingerprint, proxyUrl) {
+  const createSession = await getWreqCreateSession();
+  if (!createSession) return null;
+
+  const browser = fingerprint.browser || "chrome_124";
+  const os = fingerprint.os || "macos";
+  const sessionScope = fingerprint.sessionScope || "default";
+  const sessionKey = JSON.stringify([browser, os, proxyUrl || "direct", sessionScope]);
+
+  if (!tlsFingerprintSessions.has(sessionKey)) {
+    const sessionOptions = { browser, os };
+    if (proxyUrl) sessionOptions.proxy = proxyUrl;
+    // ponytail: sessions live until process exit; add LRU eviction only if account churn becomes measurable.
+    const pending = createSession(sessionOptions).catch((error) => {
+      tlsFingerprintSessions.delete(sessionKey);
+      throw error;
+    });
+    tlsFingerprintSessions.set(sessionKey, pending);
+  }
+
+  let session;
+  try {
+    session = await tlsFingerprintSessions.get(sessionKey);
+  } catch (error) {
+    console.warn(`[ProxyFetch] wreq-js session unavailable, using native TLS: ${error.message}`);
+    return null;
+  }
+
+  dbg("TLS", `using ${browser}/${os} fingerprint for ${new URL(url).hostname}`);
+  try {
+    return await session.fetch(url, {
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+      redirect: options.redirect,
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    const transportError = new Error(`TLS fingerprint request failed: ${error.message}`, { cause: error });
+    transportError.tlsFingerprintFailed = true;
+    throw transportError;
+  }
+}
 
 // ─── TLS fingerprinting via got-scraping (browser-like JA3) ───────────────
 // Disabled: not in use. Kept commented for future re-enable.
@@ -291,7 +350,7 @@ async function createBypassRequest(parsedUrl, realIP, options) {
   });
 }
 
-export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
+export async function proxyAwareFetch(url, options = {}, proxyOptions = null, tlsFingerprint = null) {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
   // Vercel relay: forward request via relay headers
@@ -309,6 +368,11 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
   const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
   const proxyUrl = connectionProxyUrl || envProxyUrl;
+
+  if (tlsFingerprint) {
+    const response = await tlsFingerprintFetch(targetUrl, options, tlsFingerprint, proxyUrl);
+    if (response) return response;
+  }
 
   // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
   if (shouldBypassMitmDns(targetUrl)) {
