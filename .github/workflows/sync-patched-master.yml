@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: sync-patched-master
@@ -45,6 +46,7 @@ jobs:
             > .github/workflows/sync-patched-master.yml
           git add .github/workflows/sync-patched-master.yml
           git commit -m "ci: sync patched master from upstream"
+          echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && \
              [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse origin/master^{tree})" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -77,6 +79,30 @@ jobs:
       - name: Build production app
         if: steps.patch.outputs.changed == 'true'
         run: npm run build
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.patch.outputs.changed == 'true'
+
+      - name: Log in to GHCR
+        if: steps.patch.outputs.changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push GHCR image
+        if: steps.patch.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:master-${{ steps.patch.outputs.short_sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
 
       - name: Publish fork master
         if: steps.patch.outputs.changed == 'true'
