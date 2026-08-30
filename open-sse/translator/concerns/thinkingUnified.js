@@ -221,6 +221,7 @@ function stripAll(body) {
   delete body.enable_thinking;
   delete body.thinking_budget;
   delete body.output_config;
+  if (body.params) delete body.params.reasoning_effort;
   if (body.generationConfig) delete body.generationConfig.thinkingConfig;
   if (body.request?.generationConfig) delete body.request.generationConfig.thinkingConfig;
 }
@@ -237,6 +238,15 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
       if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
       if (level) body.reasoning_effort = normalizeOpenAILevel(level, supportedLevels);
+      break;
+    }
+    case "commandcode": {
+      if (none) break;
+      let level = toLevel(eff);
+      if (level === "minimal") level = "low";
+      if (level === "ultra" || (level === "xhigh" && !supportedLevels?.includes("xhigh"))) level = "max";
+      if (level === "medium" && !supportedLevels?.includes("medium")) level = "high";
+      if (["low", "medium", "high", "xhigh", "max"].includes(level)) body.params.reasoning_effort = level;
       break;
     }
     case "claude-adaptive": {

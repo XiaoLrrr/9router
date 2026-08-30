@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import { openaiToCommandCodeRequest } from "../../open-sse/translator/request/openai-to-commandcode.js";
 
-const MODEL = "moonshotai/Kimi-K2.6";
+const MODEL = "moonshotai/Kimi-K3";
 
 describe("openaiToCommandCodeRequest — basic envelope", () => {
   it("returns the expected top-level envelope shape", () => {
@@ -177,5 +177,25 @@ describe("openaiToCommandCodeRequest — tools schema conversion", () => {
       messages: [{ role: "user", content: "hi" }],
     }, true);
     expect(out.params.tools).toBeUndefined();
+  });
+});
+
+describe("openaiToCommandCodeRequest — reasoning effort", () => {
+  it.each([
+    [MODEL, { reasoning: { effort: "minimal" } }, "low"],
+    [MODEL, { reasoning: { effort: "xhigh" } }, "max"],
+    [MODEL, { reasoning: { enabled: false, effort: "high" } }, undefined],
+    [MODEL, { reasoning: { effort: "not-real" } }, undefined],
+    [`${MODEL}(low)`, { reasoning_effort: "high" }, "high"],
+    ["deepseek/deepseek-v4-pro", { reasoning_effort: "medium" }, "high"],
+    ["gpt-5.6-luna", { reasoning_effort: "xhigh" }, "xhigh"],
+    ["moonshotai/Kimi-K2.6", { reasoning_effort: "high" }, undefined],
+  ])("maps %s reasoning to %s", (model, reasoning, expected) => {
+    const out = openaiToCommandCodeRequest(model, {
+      messages: [{ role: "user", content: "hi" }],
+      ...reasoning,
+    }, true);
+    expect(out.params.model).toBe(model.replace(/\([^()]+\)$/, ""));
+    expect(out.params.reasoning_effort).toBe(expected);
   });
 });
