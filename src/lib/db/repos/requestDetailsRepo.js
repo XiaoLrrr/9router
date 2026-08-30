@@ -68,7 +68,7 @@ function sanitizeHeaders(headers) {
   return sanitized;
 }
 
-export const __test__ = { sanitizeHeaders };
+export const __test__ = { sanitizeHeaders, buildStoredRecord };
 
 function generateDetailId(model) {
   const timestamp = new Date().toISOString();
@@ -83,6 +83,27 @@ function truncateField(obj, maxSize) {
     return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 200) };
   }
   return obj || {};
+}
+
+function buildStoredRecord(item, maxJsonSize) {
+  if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
+  return {
+    id: item.id,
+    provider: item.provider || null,
+    model: item.model || null,
+    connectionId: item.connectionId || null,
+    timestamp: item.timestamp,
+    status: item.status || null,
+    latency: item.latency || {},
+    tokens: item.tokens || {},
+    request: truncateField(item.request, maxJsonSize),
+    providerRequest: truncateField(item.providerRequest, maxJsonSize),
+    providerResponse: truncateField(item.providerResponse, maxJsonSize),
+    response: truncateField(item.response, maxJsonSize),
+    requestFlow: item.requestFlow || undefined,
+    responseConfig: item.responseConfig || undefined,
+    pxpipe: item.pxpipe || undefined,
+  };
 }
 
 async function flushToDatabase() {
@@ -100,23 +121,7 @@ async function flushToDatabase() {
         for (const item of items) {
           if (!item.id) item.id = generateDetailId(item.model);
           if (!item.timestamp) item.timestamp = new Date().toISOString();
-          if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
-
-          const record = {
-            id: item.id,
-            provider: item.provider || null,
-            model: item.model || null,
-            connectionId: item.connectionId || null,
-            timestamp: item.timestamp,
-            status: item.status || null,
-            latency: item.latency || {},
-            tokens: item.tokens || {},
-            request: truncateField(item.request, config.maxJsonSize),
-            providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
-            providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
-            response: truncateField(item.response, config.maxJsonSize),
-            pxpipe: item.pxpipe || undefined,
-          };
+          const record = buildStoredRecord(item, config.maxJsonSize);
 
           db.run(
             `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
