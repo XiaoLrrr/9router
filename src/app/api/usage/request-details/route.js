@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestDetails } from "@/lib/usageDb";
+import { summarizeRequestFlow, summarizeResponseConfig } from "open-sse/utils/requestDiagnostics.js";
 
 /**
  * GET /api/usage/request-details
@@ -55,6 +56,8 @@ export async function GET(request) {
     // metadata (model, tokens, latency, status) but drop message content.
     const redactedDetails = (result.details || []).map((d) => {
       const redacted = { ...d };
+      redacted.requestFlow ||= summarizeRequestFlow(d.request, d.providerRequest);
+      redacted.responseConfig ||= summarizeResponseConfig(d.response);
       for (const key of ["request", "providerRequest", "providerResponse", "response"]) {
         if (redacted[key] !== undefined) {
           redacted[key] = { redacted: true };
