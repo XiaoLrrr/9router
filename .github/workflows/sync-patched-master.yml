@@ -1,0 +1,109 @@
+name: Sync patched master
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: sync-patched-master
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Rebuild patched master
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git remote add upstream https://github.com/decolua/9router.git
+          git fetch --no-tags --depth=1 upstream +refs/heads/master:refs/remotes/upstream/master
+          git fetch --no-tags --depth=20 origin +refs/heads/patch-source:refs/remotes/origin/patch-source
+          git fetch --no-tags --depth=1 origin +refs/heads/master:refs/remotes/origin/master
+          git switch --force-create master upstream/master
+          git cherry-pick \
+            906f119844bd4d7a59698291af371e8381fdaca5 \
+            f7237544c37bfe4d95b1a06c98db9be77d64bffb \
+            15abf953d5cfe395d0d81ae65e29ca1e0b4e1ff8 \
+            12fe06acbd8fb55060ee145faa1b7a9a17067691 \
+            6ad8dd4936330c76583f48060f98982973e71be2
+          git show origin/patch-source:.github/workflows/sync-patched-master.yml \
+            > .github/workflows/sync-patched-master.yml
+          git add .github/workflows/sync-patched-master.yml
+          git commit -m "ci: sync patched master from upstream"
+          echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && \
+             [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse origin/master^{tree})" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.patch.outputs.changed == 'true'
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          npm install --no-audit --no-fund
+          npm --prefix tests install --no-audit --no-fund
+
+      - name: Test patches
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          cd tests
+          npx vitest run \
+            unit/request-diagnostics.test.js \
+            unit/openai-to-commandcode.test.js \
+            unit/capabilities.test.js \
+            unit/base-executor-retry.test.js \
+            unit/commandcode-tls-fingerprint.test.js
+          npx vitest run unit/request-details-tab.test.js \
+            -t "returns the selected provider key name without exposing its secret"
+          npx vitest run translator/bugs-gemini-cursor-commandcode.test.js \
+            -t "OpenAI → Gemini|OpenAI → CommandCode"
+
+      - name: Build production app
+        if: steps.patch.outputs.changed == 'true'
+        run: npm run build
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.patch.outputs.changed == 'true'
+
+      - name: Log in to GHCR
+        if: steps.patch.outputs.changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push GHCR image
+        if: steps.patch.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/xiaolrrr/9router:master-${{ steps.patch.outputs.short_sha }}
+          cache-from: type=registry,ref=ghcr.io/xiaolrrr/9router:buildcache
+          cache-to: type=registry,ref=ghcr.io/xiaolrrr/9router:buildcache,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
+
+      - name: Publish fork master
+        if: steps.patch.outputs.changed == 'true'
+        run: git push --force origin HEAD:master
