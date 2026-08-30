@@ -97,9 +97,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:master-${{ steps.patch.outputs.short_sha }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+          tags: ghcr.io/xiaolrrr/9router:master-${{ steps.patch.outputs.short_sha }}
+          cache-from: type=registry,ref=ghcr.io/xiaolrrr/9router:buildcache
+          cache-to: type=registry,ref=ghcr.io/xiaolrrr/9router:buildcache,mode=max
           platforms: linux/amd64,linux/arm64
           provenance: false
           sbom: false
