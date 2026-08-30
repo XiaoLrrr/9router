@@ -9,9 +9,7 @@ const O2C = (body) => translateRequest(FORMATS.OPENAI, FORMATS.CURSOR, "m", body
 const O2CC = (body) => translateRequest(FORMATS.OPENAI, FORMATS.COMMANDCODE, "m", body, true, null, "commandcode");
 
 describe("OpenAI → Gemini", () => {
-  // openai-to-gemini.js:92-96 — each system message overwrites systemInstruction → only last kept
-  // KNOWN BUG
-  it.fails("multiple system messages are all kept", () => {
+  it("multiple system messages are all kept", () => {
     const out = O2G({
       messages: [
         { role: "system", content: "RULE_ONE" },
@@ -20,6 +18,7 @@ describe("OpenAI → Gemini", () => {
       ],
     });
     expect(JSON.stringify(out.systemInstruction), "earlier system lost").toContain("RULE_ONE");
+    expect(JSON.stringify(out.systemInstruction), "later system lost").toContain("RULE_TWO");
   });
 });
 
@@ -45,9 +44,7 @@ describe("OpenAI → Cursor", () => {
 });
 
 describe("OpenAI → CommandCode", () => {
-  // openai-to-commandcode.js:53-57 — safeParseJson returns {} on bad JSON (args silently lost)
-  // KNOWN BUG
-  it.fails("malformed tool arguments are not silently emptied", () => {
+  it("malformed tool arguments are not silently emptied", () => {
     const out = O2CC({
       messages: [
         { role: "user", content: "go" },
@@ -59,7 +56,7 @@ describe("OpenAI → CommandCode", () => {
     });
     const asst = out.params.messages.find((m) => m.role === "assistant");
     const call = asst.content.find((b) => b.type === "tool-call");
-    expect(Object.keys(call.input).length, "arguments silently dropped to {}").toBeGreaterThan(0);
+    expect(call.input).toEqual({ raw: "{bad" });
   });
 
   it("image content is preserved", () => {
