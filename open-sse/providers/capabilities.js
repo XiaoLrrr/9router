@@ -42,7 +42,7 @@ export const DEFAULT_CAPABILITIES = {
   tools: true,          // function / tool calling
   reasoning: false,     // thinking / reasoning
   // thinking wire format (only meaningful when reasoning:true). null → derive from transport.format.
-  // enum: openai|claude-adaptive|claude-budget|gemini-level|gemini-budget|zai|qwen|deepseek|kimi|minimax|hunyuan|step
+  // enum: openai|commandcode|claude-adaptive|claude-budget|gemini-level|gemini-budget|zai|qwen|deepseek|kimi|minimax|hunyuan|step
   thinkingFormat: null,
   thinkingCanDisable: true,  // false → model cannot turn thinking off (clamp to min instead of disable)
   thinkingRange: null,       // { min, max } for budget formats; null = no clamp
@@ -116,11 +116,52 @@ const KIRO_GPT_5_6_CAPABILITIES = { vision: true, reasoning: true, search: true,
 // (lower than OpenAI API's 1.05M). Sol differs from Terra/Luna. #2720
 const CODEX_GPT_56_SOL_CAPS  = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 372000, maxOutput: 128000 };
 const CODEX_GPT_56_DEFAULT_CAPS = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 };
+const COMMANDCODE_REASONING = { reasoning: true, thinkingFormat: "commandcode" };
 
 /**
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
 export const PROVIDER_CAPABILITIES = {
+  // CommandCode Go catalog: https://commandcode.ai/docs/plans/go
+  "commandcode": {
+    "stealth/ox-alpha": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1048576 },
+    "poolside/laguna-s-2.1-free": { ...COMMANDCODE_REASONING, contextWindow: 256000, maxOutput: 32000 },
+    "tencent/hy3-paid": { ...COMMANDCODE_REASONING, contextWindow: 262144 },
+    "moonshotai/Kimi-K3": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 131072 },
+    "moonshotai/Kimi-K2.7-Code": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 256000, maxOutput: 65536 },
+    "moonshotai/Kimi-K2.7-Code-Highspeed": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 262000, maxOutput: 65536 },
+    "moonshotai/Kimi-K2.6": { vision: true, contextWindow: 256000, maxOutput: 262144 },
+    "moonshotai/Kimi-K2.5": { vision: true, contextWindow: 256000, maxOutput: 262144 },
+    "zai-org/GLM-5.3": { ...COMMANDCODE_REASONING, contextWindow: 1000000, maxOutput: 128000 },
+    "zai-org/GLM-5.2": { ...COMMANDCODE_REASONING, contextWindow: 1000000, maxOutput: 128000 },
+    "zai-org/GLM-5.2-Fast": { contextWindow: 1000000, maxOutput: 128000 },
+    "zai-org/GLM-5.1": { contextWindow: 200000, maxOutput: 128000 },
+    "zai-org/GLM-5": { contextWindow: 200000, maxOutput: 128000 },
+    "MiniMaxAI/MiniMax-M3": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 512000 },
+    "MiniMaxAI/MiniMax-M2.7": { contextWindow: 200000, maxOutput: 131072 },
+    "MiniMaxAI/MiniMax-M2.5": { contextWindow: 200000, maxOutput: 131072 },
+    "deepseek/deepseek-v4-pro": { ...COMMANDCODE_REASONING, contextWindow: 1000000, maxOutput: 384000 },
+    "deepseek/deepseek-v4-flash": { ...COMMANDCODE_REASONING, contextWindow: 1000000, maxOutput: 384000 },
+    "deepseek/deepseek-v4-flash-vision-exp": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 384000 },
+    "Qwen/Qwen3.8-Max": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 65536 },
+    "Qwen/Qwen3.8-27B": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 262144, maxOutput: 65536 },
+    "Qwen/Qwen3.6-Max-Preview": { ...COMMANDCODE_REASONING, contextWindow: 200000, maxOutput: 65536 },
+    "Qwen/Qwen3.6-Plus": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 200000, maxOutput: 65536 },
+    "Qwen/Qwen3.7-Max": { ...COMMANDCODE_REASONING, contextWindow: 1000000, maxOutput: 65536 },
+    "Qwen/Qwen3.7-Plus": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 65536 },
+    "Qwen/Qwen3.7-Flash": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000, maxOutput: 65536 },
+    "stepfun/Step-3.7-Flash": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 256000 },
+    "stepfun/Step-3.5-Flash": { ...COMMANDCODE_REASONING, contextWindow: 1000000 },
+    "xiaomi/mimo-v2.5-pro": { contextWindow: 1000000, maxOutput: 131072 },
+    "xiaomi/mimo-v2.5": { vision: true, contextWindow: 1000000, maxOutput: 131072 },
+    "nvidia/nemotron-3-ultra-550b-a55b": { ...COMMANDCODE_REASONING, contextWindow: 1000000 },
+    "gpt-5.6-luna": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1050000, maxOutput: 128000 },
+    "meta/muse-spark-1.2-contributor": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1048576 },
+    "xai/grok-4.5": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 500000 },
+    "thinkingmachines/inkling": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 256000 },
+    "thinkingmachines/inkling-small": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000 },
+    "inclusionai/ling-3.0-flash-free": { ...COMMANDCODE_REASONING, contextWindow: 256000 },
+  },
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
   "nvidia": {

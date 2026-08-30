@@ -18,6 +18,7 @@ import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
@@ -481,10 +482,9 @@ export async function buildModelsList(kindFilter, options = {}) {
         // { id, name } — no per-model capability data. Fall back to the same
         // pattern-matched capabilities the dashboard uses (useModelCaps.js) so
         // dynamically-discovered LLM models still surface vision/reasoning/search/tools.
-        const caps = liveCapabilitiesById.get(modelId)
+        let caps = liveCapabilitiesById.get(modelId)
           || capabilitiesFromServiceKind(customKind || liveKind)
           || (kind === LLM_KIND ? getCapabilitiesForModel(providerId, modelId) : null);
-        if (caps) model.capabilities = caps;
         // Token limits under the snake_case names the OpenAI/OpenRouter
         // convention uses. `capabilities.contextWindow` is camelCase and nested,
         // so clients matching context_length find nothing, fall back to guessing
@@ -493,18 +493,47 @@ export async function buildModelsList(kindFilter, options = {}) {
         // Emitted at top level because not every client recurses into nested
         // objects; the camelCase `capabilities` block stays for compatibility.
         if (kind === LLM_KIND || allowAsLlm) {
-          let contextWindow = caps?.contextWindow;
-          let maxOutput = caps?.maxOutput;
-          // Live-catalog and service-kind capabilities are usually partial
-          // (often just { tools: true }), so fill the gaps from the static
-          // table rather than emitting null and leaving clients to guess.
-          if (!Number.isFinite(contextWindow) || !Number.isFinite(maxOutput)) {
-            const fallback = getCapabilitiesForModel(providerId, modelId);
-            if (!Number.isFinite(contextWindow)) contextWindow = fallback.contextWindow;
-            if (!Number.isFinite(maxOutput)) maxOutput = fallback.maxOutput;
-          }
+          const fallback = getCapabilitiesForModel(providerId, modelId);
+          caps = { ...fallback, ...(caps || {}) };
+          const { contextWindow, maxOutput } = caps;
           if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
-          if (Number.isFinite(maxOutput)) model.max_completion_tokens = maxOutput;
+          if (Number.isFinite(maxOutput)) {
+            model.max_completion_tokens = maxOutput;
+            model.max_output_tokens = maxOutput;
+          }
+
+          const inputModalities = ["text"];
+          if (caps.vision) inputModalities.push("image");
+          if (caps.pdf) inputModalities.push("pdf");
+          if (caps.audioInput) inputModalities.push("audio");
+          if (caps.videoInput) inputModalities.push("video");
+          const outputModalities = ["text"];
+          if (caps.imageOutput) outputModalities.push("image");
+          if (caps.audioOutput) outputModalities.push("audio");
+          const thinkingLevels = getThinkingLevels(providerId, modelId);
+
+          model.input_modalities = inputModalities;
+          model.output_modalities = outputModalities;
+          model.capabilities = {
+            ...caps,
+            inputFormats: inputModalities,
+            outputFormats: outputModalities,
+            ...(thinkingLevels ? { thinkingLevels } : {}),
+          };
+          model.supported_parameters = [
+            ...(caps.tools ? ["tools"] : []),
+            ...(caps.reasoning ? ["reasoning"] : []),
+          ];
+          if (thinkingLevels) {
+            const supportedEfforts = thinkingLevels.filter((level) => level !== "none" && level !== "thinking");
+            model.reasoning_efforts = supportedEfforts;
+            model.reasoning = {
+              supported_efforts: supportedEfforts,
+              mandatory: caps.thinkingCanDisable === false,
+            };
+          }
+        } else if (caps) {
+          model.capabilities = caps;
         }
         models.push(model);
       }

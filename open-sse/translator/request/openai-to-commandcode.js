@@ -15,6 +15,7 @@ import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK } from "../schema/index.js";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
 import { parseDataUri } from "../concerns/image.js";
+import { applyThinking, extractThinking, parseSuffix } from "../concerns/thinkingUnified.js";
 
 function flattenText(content) {
   if (content == null) return "";
@@ -64,7 +65,7 @@ function toContentBlocks(content) {
 function safeParseJson(s) {
   if (s == null) return {};
   if (typeof s !== "string") return s;
-  try { return JSON.parse(s); } catch { return {}; }
+  try { return JSON.parse(s); } catch { return { raw: s }; }
 }
 
 function convertMessages(messages = []) {
@@ -143,9 +144,11 @@ function convertTools(tools) {
 }
 
 export function openaiToCommandCodeRequest(model, body, stream /* , credentials */) {
+  const suffix = parseSuffix(model);
+  const cleanModel = suffix.override ? suffix.cleanModel : model;
   const { messages, system } = convertMessages(body.messages);
   const params = {
-    model,
+    model: cleanModel,
     messages,
     stream: stream !== false,
     max_tokens: body.max_tokens ?? body.max_output_tokens ?? DEFAULT_MAX_TOKENS,
@@ -160,7 +163,7 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
 
   const today = new Date().toISOString().slice(0, 10);
 
-  return {
+  const result = {
     threadId: randomUUID(),
     memory: "",
     config: {
@@ -176,6 +179,12 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
     },
     params,
   };
+  const intent = body.reasoning && typeof body.reasoning === "object"
+    ? (body.reasoning.enabled === false
+      ? { mode: "none" }
+      : { mode: "level", level: body.reasoning.effort || "medium" })
+    : extractThinking(body) || suffix.override;
+  return applyThinking(FORMATS.COMMANDCODE, cleanModel, result, "commandcode", intent);
 }
 
 register(FORMATS.OPENAI, FORMATS.COMMANDCODE, openaiToCommandCodeRequest, null);
