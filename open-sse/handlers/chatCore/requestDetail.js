@@ -1,11 +1,12 @@
 import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { COLORS } from "../../utils/stream.js";
 import { canonicalizeUsage } from "../../utils/usageTracking.js";
+import { summarizeRequestFlow, summarizeResponseConfig } from "../../utils/requestDiagnostics.js";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",
   "max_tokens", "max_completion_tokens",
-  "thinking", "reasoning", "enable_thinking",
+  "thinking", "reasoning", "reasoning_effort", "enable_thinking",
   "presence_penalty", "frequency_penalty",
   "seed", "stop", "tools", "tool_choice",
   "response_format", "prediction", "store", "metadata",
@@ -65,6 +66,7 @@ export function extractUsageFromResponse(responseBody) {
 }
 
 export function buildRequestDetail(base, overrides = {}) {
+  const requestFlow = summarizeRequestFlow(base.request, base.providerRequest);
   return {
     provider: base.provider || "unknown",
     model: base.model || "unknown",
@@ -76,6 +78,8 @@ export function buildRequestDetail(base, overrides = {}) {
     providerRequest: base.providerRequest || null,
     providerResponse: base.providerResponse || null,
     response: base.response || {},
+    requestFlow,
+    responseConfig: summarizeResponseConfig(base.response),
     pxpipe: base.pxpipe || undefined,
     status: base.status || "success",
     ...overrides
