@@ -41,7 +41,6 @@ const PATTERN_THINKING = [
   { provider: "commandcode", pattern: "zai-org/glm-5.3", levels: ["none", "low", "high", "max"] },
   { provider: "commandcode", pattern: "zai-org/glm-5.2", levels: ["none", "high", "max"] },
   { provider: "commandcode", pattern: "qwen/qwen3.8-*", levels: ["none", "low", "medium", "xhigh"] },
-  { provider: "commandcode", pattern: "stealth/ox-alpha", levels: ["none", "low", "high", "max"] },
   { provider: "codex", pattern: "*gpt-5.6-sol*", levels: [...CODEX_GPT_5_6_LEVELS, "ultra"] },
   { provider: "codex", pattern: "*gpt-5.6-terra*", levels: [...CODEX_GPT_5_6_LEVELS, "ultra"] },
   { provider: "codex", pattern: "*gpt-5.6-luna*", levels: CODEX_GPT_5_6_LEVELS },
