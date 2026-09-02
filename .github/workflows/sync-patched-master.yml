@@ -37,7 +37,8 @@ jobs:
             f7237544c37bfe4d95b1a06c98db9be77d64bffb \
             15abf953d5cfe395d0d81ae65e29ca1e0b4e1ff8 \
             12fe06acbd8fb55060ee145faa1b7a9a17067691 \
-            6ad8dd4936330c76583f48060f98982973e71be2
+            6ad8dd4936330c76583f48060f98982973e71be2 \
+            5763f089561af5d1ac5c4064fdf94ca77134bce8
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
           git add .github/workflows/sync-patched-master.yml
@@ -70,7 +71,8 @@ jobs:
             unit/openai-to-commandcode.test.js \
             unit/capabilities.test.js \
             unit/base-executor-retry.test.js \
-            unit/commandcode-tls-fingerprint.test.js
+            unit/commandcode-tls-fingerprint.test.js \
+            unit/commandcode-models.test.js
           npx vitest run unit/request-details-tab.test.js \
             -t "returns the selected provider key name without exposing its secret"
           npx vitest run translator/bugs-gemini-cursor-commandcode.test.js \
