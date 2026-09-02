@@ -13,6 +13,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isOllamaLocal = provider === "ollama-local";
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
+  const isCommandCode = provider === "commandcode";
   const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" ? "Personal Access Token (PAT)" : "API Key";
   const credentialPlaceholder = isCookie
     ? (provider === "grok-web" ? "sso=xxxxx... or just the raw value" : "eyJhbGciOi...")
@@ -30,6 +31,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     priority: 1,
     proxyPoolId: NONE_PROXY_POOL_VALUE,
     ollamaHostUrl: "",
+    plan: "go",
   });
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
@@ -53,6 +55,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const [bulkResult, setBulkResult] = useState(null); // { success, failed }
 
   const buildProviderSpecificData = () => {
+    if (isCommandCode) return { plan: formData.plan };
     if (isOllamaLocal && formData.ollamaHostUrl.trim()) {
       return { baseUrl: formData.ollamaHostUrl.trim() };
     }
@@ -171,7 +174,9 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             name: entry.name,
             priority: 1,
             testStatus: isValid ? "active" : "unknown",
-            ...(entry.providerSpecificData ? { providerSpecificData: entry.providerSpecificData } : {}),
+            ...(isCommandCode
+              ? { providerSpecificData: { plan: formData.plan } }
+              : entry.providerSpecificData ? { providerSpecificData: entry.providerSpecificData } : {}),
           }),
         });
         if (res.ok) success++;
@@ -195,6 +200,15 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>Single</Button>
           <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
         </div>
+
+        {isCommandCode && (
+          <Select
+            label="Plan"
+            value={formData.plan}
+            onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
+            options={["go", "pro", "max"].map((plan) => ({ value: plan, label: plan[0].toUpperCase() + plan.slice(1) }))}
+          />
+        )}
 
         {mode === "bulk" && (
           <div className="flex flex-col gap-3">
