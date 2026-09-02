@@ -147,7 +147,6 @@ const COMMANDCODE_REASONING = { reasoning: true, thinkingFormat: "commandcode" }
 export const PROVIDER_CAPABILITIES = {
   // CommandCode Go catalog: https://commandcode.ai/docs/plans/go
   "commandcode": {
-    "stealth/ox-alpha": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1048576 },
     "poolside/laguna-s-2.1-free": { ...COMMANDCODE_REASONING, contextWindow: 256000, maxOutput: 32000 },
     "tencent/hy3-paid": { ...COMMANDCODE_REASONING, contextWindow: 262144 },
     "tencent/hy4-preview": { ...COMMANDCODE_REASONING, contextWindow: 1048576 },
@@ -187,7 +186,6 @@ export const PROVIDER_CAPABILITIES = {
     "xai/grok-4.5": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 500000 },
     "thinkingmachines/inkling": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 256000 },
     "thinkingmachines/inkling-small": { ...COMMANDCODE_REASONING, vision: true, contextWindow: 1000000 },
-    "inclusionai/ling-3.0-flash-free": { ...COMMANDCODE_REASONING, contextWindow: 256000 },
   },
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
