@@ -62,6 +62,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm --prefix tests install --no-audit --no-fund
+          npm --prefix tests install --no-save --no-audit --no-fund @rolldown/binding-linux-x64-gnu
 
       - name: Test patches
         if: steps.patch.outputs.changed == 'true'
