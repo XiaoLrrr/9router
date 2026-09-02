@@ -5,15 +5,15 @@
 
 ## 提交概览
 
-| 提交 | 类型 | 说明 |
+| 补丁 | 类型 | 说明 |
 | --- | --- | --- |
-| `40897527` | 修复 | 保留 OpenAI 请求中的图片内容块并转发给 CommandCode |
-| `d85f670c` | 功能 | 补充 CommandCode 模型能力、思考档位转发和请求诊断 |
-| `885b00e0` | 构建 | 隔离 Next.js 生产构建与本地运行状态，降低构建 OOM 风险 |
-| `1b412d17` | 修复 | 将请求配置和响应证据真正写入请求详情存储 |
-| 当前补丁 | 功能 | 固化 CommandCode Go 全量模型及逐模型能力、推理档位 |
+| CommandCode 图片 | 修复 | 保留 OpenAI 请求中的图片内容块并转发给 CommandCode |
+| CommandCode 能力与诊断 | 功能 | 固化模型目录、转发思考档位并持久化请求诊断 |
+| 隔离生产构建 | 构建 | 隔离 Next.js 生产构建与本地运行状态，不锁定上游依赖版本 |
+| 上游密钥识别 | 功能 | 在使用详情中显示实际选中的脱敏提供商密钥 |
+| CommandCode TLS 指纹 | 功能 | 使用隔离的 Chrome 124 TLS 会话请求 CommandCode |
 
-## 40897527：保留图片内容块
+## 保留图片内容块
 
 ### 问题
 
@@ -36,7 +36,7 @@ OpenAI 格式请求转换为 CommandCode 格式时，图片会被替换成
 
 仅改变 OpenAI 到 CommandCode 的图片输入转换；纯文本请求行为不变。
 
-## d85f670c：能力元数据、思考档位和诊断证据
+## 能力元数据、思考档位和诊断证据
 
 ### 问题
 
@@ -97,7 +97,7 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
 实际收到了什么、向上游转发了什么。能力数值来自当前 CommandCode 路由的实测约束，
 上游模型规格变化时应重新核验。
 
-## 885b00e0：隔离 Next.js 生产构建
+## 隔离 Next.js 生产构建
 
 ### 问题
 
@@ -106,8 +106,8 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
 
 ### 实现
 
-- 将 `next`、`@next/third-parties` 和 `eslint-config-next` 对齐到锁文件已有的
-  `16.3.2`，避免同一构建中混用 Next 版本。
+- 保持上游的 `next`、`@next/third-parties` 和 `eslint-config-next` 版本声明不变，
+  避免补丁阻塞后续依赖升级。
 - 启用 Next.js webpack 内存优化。
 - 用 Node 标准库脚本创建临时 HOME/AppData 后执行 `next build --webpack`。
 - 无论构建成功或失败都清理临时目录，且不接触正在运行的本地实例数据。
@@ -123,7 +123,7 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
 `npm run build` 的入口不变，但构建过程不再依赖用户真实 HOME 中的 9Router 状态。
 完整生产构建已成功生成 135 个路由。
 
-## 1b412d17：持久化请求诊断摘要
+## 持久化请求诊断摘要
 
 ### 问题
 
@@ -146,7 +146,7 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
 新产生的请求详情会持久保存诊断摘要。旧记录若未保存这些字段，只能由仍存在的脱敏前
 请求数据临时推导，不能凭空恢复历史上游请求。
 
-## 当前补丁：CommandCode Go 模型目录
+## CommandCode Go 模型目录
 
 - 固化官网当前 Go 目录的 37 个模型，包括新增的 Ling 3.0 Flash Free。
 - `contextWindow`、视觉和推理能力与 CommandCode 模型页服务端数据逐项校验。
@@ -156,7 +156,18 @@ CommandCode 的 `reasoning_effort`，调用详情中也无法判断参数是被�
   `medium` 兼容映射为 `high`。
 - `/v1/models` 同时返回顶层 `reasoning_efforts` 和嵌套
   `reasoning.supported_efforts`；`none` 只表示关闭思考，不作为强度返回。
-- 此节覆盖上文 `d85f670c` 中仅针对两个 DeepSeek 模型和通用四档的旧说明。
+- 此节覆盖上文仅针对两个 DeepSeek 模型和通用四档的初始实现。
+
+## 识别实际提供商密钥
+
+- 请求详情根据连接 ID 解析实际处理请求的提供商密钥名称和脱敏前缀。
+- API 与面板只显示可识别信息，不返回完整密钥。
+
+## CommandCode TLS 指纹传输
+
+- CommandCode 请求使用按连接隔离的 `wreq-js` Chrome 124 TLS 会话。
+- 其他提供商继续使用原有传输；指纹请求失败后不自动重放 POST，避免重复生成。
+- Docker standalone 镜像包含可选原生绑定。
 
 ## 验证记录
 
@@ -180,5 +191,5 @@ npx vitest run --config tests/vitest.config.js \
 
 ## 后续同步上游
 
-同步新的上游版本时，建议按上述四个提交分别检查冲突。若上游已原生支持某一能力，优先
+同步新的上游版本时，建议按上述五个逻辑补丁分别检查冲突。若上游已原生支持某一能力，优先
 删除对应本地补丁并采用上游实现；不要长期维护两套并行逻辑。
