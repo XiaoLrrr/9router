@@ -40,7 +40,7 @@ jobs:
             6ad8dd4936330c76583f48060f98982973e71be2 \
             5763f089561af5d1ac5c4064fdf94ca77134bce8 \
             615350dc906b62bb22661aad7bd77e35215a74d9 \
-            d00363b6460c277cf1140fb2cc220d1c06481d5b
+            4c3cefbe7a9d49c099f995336d4bac27668f29e7
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
           git add .github/workflows/sync-patched-master.yml
