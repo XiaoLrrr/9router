@@ -1,3 +1,10 @@
+export const COMMANDCODE_PLAN_CONFIG = {
+  values: ["go", "pro", "max"],
+  default: "go",
+  maxOnlyPrefixes: ["claude-opus-", "claude-fable-"],
+  maxOnlyModels: ["sakana/fugu-ultra"],
+};
+
 export default {
   id: "commandcode",
   priority: 100,

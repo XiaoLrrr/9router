@@ -5,6 +5,7 @@ import {
   updateProviderConnection,
   deleteProviderConnection,
 } from "@/models";
+import { normalizeProviderSpecificData } from "@/lib/providerNormalization";
 
 function normalizeProxyConfig(body = {}) {
   const hasAnyProxyField =
@@ -117,6 +118,7 @@ export async function PUT(request, { params }) {
     }
 
     const updateData = {};
+    const normalizedProviderSpecificData = normalizeProviderSpecificData(existing.provider, body, providerSpecificData);
     if (name !== undefined) updateData.name = name;
     if (priority !== undefined) updateData.priority = priority;
     if (globalPriority !== undefined) updateData.globalPriority = globalPriority;
@@ -130,14 +132,14 @@ export async function PUT(request, { params }) {
     if (
       shouldMergeProviderSpecificData(
         existing.providerSpecificData,
-        providerSpecificData,
+        normalizedProviderSpecificData,
         proxyConfig.hasAnyProxyField,
         proxyPoolResult.hasProxyPoolField
       )
     ) {
       updateData.providerSpecificData = {
         ...(existing.providerSpecificData || {}),
-        ...(providerSpecificData || {}),
+        ...(normalizedProviderSpecificData || {}),
       };
 
       if (proxyConfig.hasAnyProxyField) {
