@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearCommandCodeModelCache,
+  isCommandCodeModelAllowed,
+  normalizeCommandCodePlan,
   resolveCommandCodeModels,
 } from "../../open-sse/services/commandCodeModels.js";
 
@@ -30,5 +32,15 @@ describe("Command Code live models", () => {
   it("fails open when the catalog is unavailable", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response("no", { status: 503 }));
     await expect(resolveCommandCodeModels({ fetchFn })).resolves.toBeNull();
+  });
+
+  it("enforces Go, Pro, and Max model access", () => {
+    expect(normalizeCommandCodePlan("invalid")).toBe("go");
+    expect(isCommandCodeModelAllowed("gpt-5.6-luna", "go")).toBe(true);
+    expect(isCommandCodeModelAllowed("claude-sonnet-5", "go")).toBe(false);
+    expect(isCommandCodeModelAllowed("claude-sonnet-5", "pro")).toBe(true);
+    expect(isCommandCodeModelAllowed("claude-opus-5", "pro")).toBe(false);
+    expect(isCommandCodeModelAllowed("sakana/fugu-ultra", "pro")).toBe(false);
+    expect(isCommandCodeModelAllowed("claude-opus-5", "max")).toBe(true);
   });
 });
