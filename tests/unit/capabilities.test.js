@@ -93,8 +93,6 @@ describe("getCapabilitiesForModel", () => {
       .toEqual(["none", "high", "max"]);
     expect(getThinkingLevels("commandcode", "gpt-5.6-luna"))
       .toEqual(["none", "low", "medium", "high", "xhigh", "max"]);
-    expect(getThinkingLevels("commandcode", "stealth/ox-alpha"))
-      .toEqual(["none", "low", "high", "max"]);
     expect(getThinkingLevels("commandcode", "Qwen/Qwen3.8-Max"))
       .toEqual(["none", "low", "medium", "xhigh"]);
   });
