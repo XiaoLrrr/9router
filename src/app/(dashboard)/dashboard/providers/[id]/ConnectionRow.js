@@ -170,11 +170,6 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <Badge variant="default" size="sm">
               {authLabel}
             </Badge>
-            {connection.provider === "commandcode" && (
-              <Badge variant="default" size="sm">
-                {(connection.providerSpecificData?.plan || "go").toUpperCase()}
-              </Badge>
-            )}
             {hasAnyProxy && (
               <Badge variant={proxyBadgeVariant} size="sm">
                 Proxy
@@ -294,8 +289,6 @@ ConnectionRow.propTypes = {
     lastError: PropTypes.string,
     priority: PropTypes.number,
     globalPriority: PropTypes.number,
-    provider: PropTypes.string,
-    providerSpecificData: PropTypes.object,
   }).isRequired,
   proxyPools: PropTypes.arrayOf(PropTypes.shape({
     id: PropTypes.string,

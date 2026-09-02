@@ -1,28 +1,8 @@
-import { PROVIDERS, PROVIDER_MODELS } from "../providers/index.js";
-import { COMMANDCODE_PLAN_CONFIG } from "../providers/registry/commandcode.js";
+import { PROVIDERS } from "../providers/index.js";
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 5_000;
 let catalogCache = null;
-
-const GO_MODEL_IDS = new Set(PROVIDER_MODELS.commandcode.map((model) => model.id));
-
-export function normalizeCommandCodePlan(plan) {
-  const normalized = typeof plan === "string" ? plan.trim().toLowerCase() : "";
-  return COMMANDCODE_PLAN_CONFIG.values.includes(normalized) ? normalized : COMMANDCODE_PLAN_CONFIG.default;
-}
-
-export function isCommandCodeModelAllowed(modelId, plan) {
-  const id = String(modelId || "").replace(/^(?:cmc|commandcode)\//, "");
-  const normalizedPlan = normalizeCommandCodePlan(plan);
-  if (normalizedPlan === "max") return true;
-  if (normalizedPlan === "pro") {
-    const lowerId = id.toLowerCase();
-    return !COMMANDCODE_PLAN_CONFIG.maxOnlyPrefixes.some((prefix) => lowerId.startsWith(prefix))
-      && !COMMANDCODE_PLAN_CONFIG.maxOnlyModels.includes(lowerId);
-  }
-  return GO_MODEL_IDS.has(id);
-}
 
 export function parseCommandCodeModels(data) {
   const entries = Array.isArray(data) ? data : data?.data ?? data?.models ?? data?.results ?? [];

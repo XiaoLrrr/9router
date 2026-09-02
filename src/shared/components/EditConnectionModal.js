@@ -14,7 +14,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     name: "",
     priority: 1,
     apiKey: "",
-    plan: "go",
   });
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
@@ -36,7 +35,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         name: connection.name || "",
         priority: connection.priority || 1,
         apiKey: "",
-        plan: connection.providerSpecificData?.plan || "go",
       });
       // Load Azure-specific data if present
       if (connection.provider === "azure" && connection.providerSpecificData) {
@@ -64,7 +62,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const isOAuth = connection?.authType === "oauth";
   const isAzure = connection?.provider === "azure";
   const isCloudflareAi = connection?.provider === "cloudflare-ai";
-  const isCommandCode = connection?.provider === "commandcode";
   const isCompatible = connection
     ? (isOpenAICompatibleProvider(connection.provider) || isAnthropicCompatibleProvider(connection.provider))
     : false;
@@ -124,7 +121,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         name: formData.name,
         priority: formData.priority,
       };
-      if (isCommandCode) updates.providerSpecificData = { plan: formData.plan };
       if (!isOAuth && formData.apiKey) {
         updates.apiKey = formData.apiKey;
         let isValid = validationResult === "success";
@@ -205,15 +201,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           value={formData.priority}
           onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value, 10) || 1 })}
         />
-
-        {isCommandCode && (
-          <Select
-            label="Plan"
-            value={formData.plan}
-            onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
-            options={["go", "pro", "max"].map((plan) => ({ value: plan, label: plan[0].toUpperCase() + plan.slice(1) }))}
-          />
-        )}
 
         {!isOAuth && (
           <>

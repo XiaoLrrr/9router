@@ -14,7 +14,7 @@ import { resolveCopilotModels } from "open-sse/services/copilotModels.js";
 import { resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
-import { isCommandCodeModelAllowed, resolveCommandCodeModels } from "open-sse/services/commandCodeModels.js";
+import { resolveCommandCodeModels } from "open-sse/services/commandCodeModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
@@ -286,11 +286,11 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
-  const activeConnectionsByProvider = new Map();
+  const activeConnectionByProvider = new Map();
   for (const conn of connections) {
-    const providerConnections = activeConnectionsByProvider.get(conn.provider) || [];
-    providerConnections.push(conn);
-    activeConnectionsByProvider.set(conn.provider, providerConnections);
+    if (!activeConnectionByProvider.has(conn.provider)) {
+      activeConnectionByProvider.set(conn.provider, conn);
+    }
   }
 
   const models = [];
@@ -345,8 +345,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       });
     }
   } else {
-    for (const [providerId, providerConnections] of activeConnectionsByProvider.entries()) {
-      const conn = providerConnections[0];
+    for (const [providerId, conn] of activeConnectionByProvider.entries()) {
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
 
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
@@ -464,10 +463,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         })
         .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
-      const mergedModelIds = Array.from(new Set([...modelIds, ...customModelIds, ...aliasModelIds]))
-        .filter((modelId) => providerId !== "commandcode" || providerConnections.some(
-          (connection) => isCommandCodeModelAllowed(modelId, connection.providerSpecificData?.plan)
-        ));
+      const mergedModelIds = Array.from(new Set([...modelIds, ...customModelIds, ...aliasModelIds]));
 
       for (const modelId of mergedModelIds) {
         // Resolve kind: prefer custom/live metadata, then static, then ID heuristics.
