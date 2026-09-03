@@ -153,6 +153,7 @@ jobs:
           - Patched commit: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${patched_sha}
           EOF
           gh release create "${tag}" \
+            --repo "${GITHUB_REPOSITORY}" \
             --target "${patched_sha}" \
             --title "9Router v${version} patched (${patched_sha:0:8})" \
             --notes-file "${notes}" \
