@@ -54,12 +54,7 @@ jobs:
             4c3cefbe7a9d49c099f995336d4bac27668f29e7
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
-          sed -i '/^[[:space:]]*- "v\*"[[:space:]]*$/a\      - "!v*-patched.*"' \
-            .github/workflows/docker-publish.yml
-          grep -qF -- '- "!v*-patched.*"' .github/workflows/docker-publish.yml
-          git add \
-            .github/workflows/sync-patched-master.yml \
-            .github/workflows/docker-publish.yml
+          git add .github/workflows/sync-patched-master.yml
           git commit -m "ci: sync patched master from upstream"
           echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && \
