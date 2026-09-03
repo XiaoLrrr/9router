@@ -52,7 +52,12 @@ jobs:
             4c3cefbe7a9d49c099f995336d4bac27668f29e7
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
-          git add .github/workflows/sync-patched-master.yml
+          sed -i '/^[[:space:]]*- "v\*"[[:space:]]*$/a\      - "!v*-patched.*"' \
+            .github/workflows/docker-publish.yml
+          grep -qF -- '- "!v*-patched.*"' .github/workflows/docker-publish.yml
+          git add \
+            .github/workflows/sync-patched-master.yml \
+            .github/workflows/docker-publish.yml
           git commit -m "ci: sync patched master from upstream"
           echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && \
@@ -120,3 +125,38 @@ jobs:
       - name: Publish fork master
         if: steps.patch.outputs.changed == 'true'
         run: git push --force origin HEAD:master
+
+      - name: Publish patched release
+        if: steps.patch.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          patched_sha="$(git rev-parse HEAD)"
+          tag="v${version}-patched.${patched_sha:0:8}"
+          notes="${RUNNER_TEMP}/patched-release-notes.md"
+          cat > "${notes}" <<EOF
+          Patched distribution based on upstream 9Router v${version}.
+
+          ## Verification
+
+          - Focused patch tests passed.
+          - Production application build passed.
+          - linux/amd64 container image built and published successfully.
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          ## Container image
+
+          \`ghcr.io/xiaolrrr/9router:master-${{ steps.patch.outputs.short_sha }}\`
+
+          ## Source
+
+          - Patched commit: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${patched_sha}
+          EOF
+          gh release create "${tag}" \
+            --target "${patched_sha}" \
+            --title "9Router v${version} patched (${patched_sha:0:8})" \
+            --notes-file "${notes}" \
+            --latest
