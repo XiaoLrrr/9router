@@ -37,6 +37,8 @@ describe("Command Code live models", () => {
   it("enforces Go, Pro, and Max model access", () => {
     expect(normalizeCommandCodePlan("invalid")).toBe("go");
     expect(isCommandCodeModelAllowed("gpt-5.6-luna", "go")).toBe(true);
+    expect(isCommandCodeModelAllowed("deepseek/deepseek-v4.1-flash", "go")).toBe(true);
+    expect(isCommandCodeModelAllowed("meituan/LongCat-2.0:free", "go")).toBe(true);
     expect(isCommandCodeModelAllowed("claude-sonnet-5", "go")).toBe(false);
     expect(isCommandCodeModelAllowed("claude-sonnet-5", "pro")).toBe(true);
     expect(isCommandCodeModelAllowed("claude-opus-5", "pro")).toBe(false);
