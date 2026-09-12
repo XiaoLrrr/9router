@@ -58,7 +58,8 @@ jobs:
           git cherry-pick \
             5763f089561af5d1ac5c4064fdf94ca77134bce8 \
             615350dc906b62bb22661aad7bd77e35215a74d9 \
-            4c3cefbe7a9d49c099f995336d4bac27668f29e7
+            4c3cefbe7a9d49c099f995336d4bac27668f29e7 \
+            f7312c29426a66a9797c29b5e65f568e96f9c274
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
           git show origin/patch-source:AGENTS.md > AGENTS.md
