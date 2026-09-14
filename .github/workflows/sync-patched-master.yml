@@ -60,7 +60,7 @@ jobs:
             615350dc906b62bb22661aad7bd77e35215a74d9 \
             4c3cefbe7a9d49c099f995336d4bac27668f29e7 \
             f7312c29426a66a9797c29b5e65f568e96f9c274 \
-            2d4bd8d3138f46e03dd607b2c691beb86677bf6a
+            97b604e6ace63d2d8d179e9a4d22cd0055db8fde
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
           git show origin/patch-source:AGENTS.md > AGENTS.md
