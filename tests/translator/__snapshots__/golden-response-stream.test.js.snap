@@ -463,6 +463,9 @@ exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI > error eve
     "model": "unknown",
     "object": "chat.completion.chunk",
   },
+  {
+    "done": true,
+  },
 ]
 `;
 
@@ -565,6 +568,9 @@ exports[`GOLDEN response stream: OpenAI-Responses (codex) → OpenAI > text + re
       },
       "total_tokens": 15,
     },
+  },
+  {
+    "done": true,
   },
 ]
 `;
