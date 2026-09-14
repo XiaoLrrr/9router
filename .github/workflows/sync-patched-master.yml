@@ -84,7 +84,11 @@ jobs:
             if git diff --quiet "$previous_master" HEAD -- . \
               ':(exclude).github/**' ':(exclude)tests/**' \
               ':(exclude)docs/**' ':(exclude)**/*.md'; then
-              echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+              if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_artifacts }}" = "true" ]; then
+                echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+              fi
               echo "release_needed=false" >> "$GITHUB_OUTPUT"
             else
               echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
