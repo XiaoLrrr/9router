@@ -1,0 +1,224 @@
+name: Sync patched master
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      publish_artifacts:
+        description: Build the container image and patched release
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: sync-patched-master
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 64
+
+      - name: Rebuild patched master
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git remote add upstream https://github.com/decolua/9router.git
+          git fetch --no-tags --depth=1 upstream +refs/heads/master:refs/remotes/upstream/master
+          git fetch --no-tags --depth=64 origin +refs/heads/patch-source:refs/remotes/origin/patch-source
+          git fetch --no-tags --depth=1 origin +refs/heads/master:refs/remotes/origin/master
+          previous_master="$(git rev-parse origin/master)"
+          git switch --force-create master upstream/master
+          git cherry-pick \
+            906f119844bd4d7a59698291af371e8381fdaca5 \
+            f8fffa35afb8da9fe1eed99bc9d38ceceb5fcec8 \
+            15abf953d5cfe395d0d81ae65e29ca1e0b4e1ff8 \
+            12fe06acbd8fb55060ee145faa1b7a9a17067691
+          if ! git cherry-pick 6ad8dd4936330c76583f48060f98982973e71be2; then
+            test "$(git diff --name-only --diff-filter=U)" = Dockerfile
+            git checkout --ours Dockerfile
+            sed -i '/node_modules\/node-machine-id/a\COPY --from=builder /app/node_modules/wreq-js ./node_modules/wreq-js\nCOPY --from=builder /app/node_modules/@wreq-js ./node_modules/@wreq-js' Dockerfile
+            grep -q 'node_modules/wreq-js' Dockerfile
+            grep -q 'node_modules/@wreq-js' Dockerfile
+            git add Dockerfile
+            GIT_EDITOR=true git cherry-pick --continue
+          fi
+          git cherry-pick \
+            5763f089561af5d1ac5c4064fdf94ca77134bce8 \
+            615350dc906b62bb22661aad7bd77e35215a74d9 \
+            4c3cefbe7a9d49c099f995336d4bac27668f29e7 \
+            f7312c29426a66a9797c29b5e65f568e96f9c274 \
+            97b604e6ace63d2d8d179e9a4d22cd0055db8fde \
+            24475c0e01df7eeaa8eef518a5ac559ea3a8147b \
+            fc7a852c4d65e9215ce0cf35126c215916ed9f39
+          sed -i \
+            -e '/# CN mirror for apk (used by builder and runner stages)/d' \
+            -e '/mirrors\.aliyun\.com/d' \
+            -e 's|npm install --registry=https://registry\.npmmirror\.com|npm install|' \
+            Dockerfile
+          ! grep -Eq 'mirrors\.aliyun\.com|registry\.npmmirror\.com' Dockerfile
+          git show origin/patch-source:.github/workflows/sync-patched-master.yml \
+            > .github/workflows/sync-patched-master.yml
+          git show origin/patch-source:AGENTS.md > AGENTS.md
+          git add Dockerfile .github/workflows/sync-patched-master.yml AGENTS.md
+          git commit -m "ci: sync patched master from upstream"
+          if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$previous_master^{tree}")" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_artifacts }}" = "true" ]; then
+              echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+            fi
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            echo "short_sha=$(git rev-parse --short=8 "$previous_master")" >> "$GITHUB_OUTPUT"
+            echo "patched_sha=$previous_master" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+            echo "patched_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            if git diff --quiet "$previous_master" HEAD -- . \
+              ':(exclude).github/**' ':(exclude)tests/**' \
+              ':(exclude)docs/**' ':(exclude)**/*.md'; then
+              if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_artifacts }}" = "true" ]; then
+                echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+              fi
+              echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
+              if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+                version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+                if git ls-remote --exit-code --tags origin "refs/tags/v${version}-patched.*" >/dev/null; then
+                  echo "release_needed=false" >> "$GITHUB_OUTPUT"
+                else
+                  echo "release_needed=true" >> "$GITHUB_OUTPUT"
+                fi
+              else
+                echo "release_needed=false" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.patch.outputs.runtime_changed == 'true'
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        if: steps.patch.outputs.runtime_changed == 'true'
+        run: |
+          npm install --no-audit --no-fund
+          npm --prefix tests install --no-audit --no-fund
+          npm --prefix tests install --no-save --no-audit --no-fund @rolldown/binding-linux-x64-gnu
+
+      - name: Test patches
+        if: steps.patch.outputs.runtime_changed == 'true'
+        run: |
+          cd tests
+          npx vitest run \
+            unit/request-diagnostics.test.js \
+            unit/openai-to-commandcode.test.js \
+            unit/capabilities.test.js \
+            unit/base-executor-retry.test.js \
+            unit/openai-responses-terminal-event.test.js \
+            unit/commandcode-tls-fingerprint.test.js \
+            unit/commandcode-models.test.js
+          npx vitest run unit/request-details-tab.test.js \
+            -t "returns the selected provider key name without exposing its secret"
+          npx vitest run translator/bugs-gemini-cursor-commandcode.test.js \
+            -t "OpenAI → Gemini|OpenAI → CommandCode"
+
+      - name: Build production app
+        if: >-
+          steps.patch.outputs.runtime_changed == 'true' &&
+          !((github.event_name == 'schedule' && steps.patch.outputs.release_needed == 'true') ||
+            (github.event_name == 'workflow_dispatch' && inputs.publish_artifacts))
+        run: npm run build
+
+      - uses: docker/setup-buildx-action@v3
+        if: >-
+          steps.patch.outputs.runtime_changed == 'true' &&
+          ((github.event_name == 'schedule' && steps.patch.outputs.release_needed == 'true') ||
+           (github.event_name == 'workflow_dispatch' && inputs.publish_artifacts))
+
+      - name: Log in to GHCR
+        if: >-
+          steps.patch.outputs.runtime_changed == 'true' &&
+          ((github.event_name == 'schedule' && steps.patch.outputs.release_needed == 'true') ||
+           (github.event_name == 'workflow_dispatch' && inputs.publish_artifacts))
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push GHCR image
+        if: >-
+          steps.patch.outputs.runtime_changed == 'true' &&
+          ((github.event_name == 'schedule' && steps.patch.outputs.release_needed == 'true') ||
+           (github.event_name == 'workflow_dispatch' && inputs.publish_artifacts))
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/xiaolrrr/9router:master-${{ steps.patch.outputs.short_sha }}
+          cache-from: type=registry,ref=ghcr.io/xiaolrrr/9router:buildcache
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+
+      - name: Publish fork master
+        if: steps.patch.outputs.changed == 'true'
+        run: git push --force origin HEAD:master
+
+      - name: Publish patched release
+        if: >-
+          steps.patch.outputs.runtime_changed == 'true' &&
+          ((github.event_name == 'schedule' && steps.patch.outputs.release_needed == 'true') ||
+           (github.event_name == 'workflow_dispatch' && inputs.publish_artifacts))
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          patched_sha="${{ steps.patch.outputs.patched_sha }}"
+          tag="v${version}-patched.${patched_sha:0:8}"
+          notes="${RUNNER_TEMP}/patched-release-notes.md"
+          cat > "${notes}" <<EOF
+          Patched distribution based on upstream 9Router v${version}.
+
+          ## Verification
+
+          - Focused patch tests passed.
+          - Production application build passed.
+          - linux/amd64 container image built and published successfully.
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          ## Container image
+
+          \`ghcr.io/xiaolrrr/9router:master-${{ steps.patch.outputs.short_sha }}\`
+
+          ## Source
+
+          - Patched commit: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${patched_sha}
+          EOF
+          gh release create "${tag}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${patched_sha}" \
+            --title "9Router v${version} patched (${patched_sha:0:8})" \
+            --notes-file "${notes}" \
+            --latest
