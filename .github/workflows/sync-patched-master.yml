@@ -69,12 +69,18 @@ jobs:
           git commit -m "ci: sync patched master from upstream"
           if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$previous_master^{tree}")" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_artifacts }}" = "true" ]; then
+              echo "runtime_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "runtime_changed=false" >> "$GITHUB_OUTPUT"
+            fi
             echo "release_needed=false" >> "$GITHUB_OUTPUT"
             echo "short_sha=$(git rev-parse --short=8 "$previous_master")" >> "$GITHUB_OUTPUT"
+            echo "patched_sha=$previous_master" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "short_sha=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+            echo "patched_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             if git diff --quiet "$previous_master" HEAD -- . \
               ':(exclude).github/**' ':(exclude)tests/**' \
               ':(exclude)docs/**' ':(exclude)**/*.md'; then
@@ -178,7 +184,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
-          patched_sha="$(git rev-parse HEAD)"
+          patched_sha="${{ steps.patch.outputs.patched_sha }}"
           tag="v${version}-patched.${patched_sha:0:8}"
           notes="${RUNNER_TEMP}/patched-release-notes.md"
           cat > "${notes}" <<EOF
