@@ -62,10 +62,16 @@ jobs:
             f7312c29426a66a9797c29b5e65f568e96f9c274 \
             97b604e6ace63d2d8d179e9a4d22cd0055db8fde \
             24475c0e01df7eeaa8eef518a5ac559ea3a8147b
+          sed -i \
+            -e '/# CN mirror for apk (used by builder and runner stages)/d' \
+            -e '/mirrors\.aliyun\.com/d' \
+            -e 's|npm install --registry=https://registry\.npmmirror\.com|npm install|' \
+            Dockerfile
+          ! grep -Eq 'mirrors\.aliyun\.com|registry\.npmmirror\.com' Dockerfile
           git show origin/patch-source:.github/workflows/sync-patched-master.yml \
             > .github/workflows/sync-patched-master.yml
           git show origin/patch-source:AGENTS.md > AGENTS.md
-          git add .github/workflows/sync-patched-master.yml AGENTS.md
+          git add Dockerfile .github/workflows/sync-patched-master.yml AGENTS.md
           git commit -m "ci: sync patched master from upstream"
           if [ "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$previous_master^{tree}")" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
