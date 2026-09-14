@@ -89,18 +89,18 @@ describe("OpenAI Responses streaming termination", () => {
     expect(output).not.toContain("data: [DONE]");
   });
 
-  it("only terminates a CommandCode-to-Responses stream after upstream DONE", async () => {
+  it("only terminates a CommandCode-to-OpenAI stream after upstream DONE", async () => {
     const chunks = [
       `data: ${JSON.stringify({ id: "chatcmpl_test", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "ok" }, finish_reason: null }] })}`,
       `data: ${JSON.stringify({ id: "chatcmpl_test", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
       "",
     ].join("\n");
 
-    const completed = await runTransform(`${chunks}data: [DONE]\n\n`, FORMATS.OPENAI_RESPONSES, FORMATS.COMMANDCODE);
-    const truncated = await runTransform(chunks, FORMATS.OPENAI_RESPONSES, FORMATS.COMMANDCODE);
+    const completed = await runTransform(`${chunks}data: [DONE]\n\n`, FORMATS.OPENAI, FORMATS.COMMANDCODE);
+    const truncated = await runTransform(chunks, FORMATS.OPENAI, FORMATS.COMMANDCODE);
 
-    expect(completed).toContain("event: response.completed");
-    expect(completed.indexOf("event: response.completed")).toBeLessThan(completed.indexOf("data: [DONE]"));
+    expect(completed).toContain('"finish_reason":"stop"');
+    expect(completed.indexOf('"finish_reason":"stop"')).toBeLessThan(completed.indexOf("data: [DONE]"));
     expect(completed.match(/data: \[DONE\]/g)).toHaveLength(1);
     expect(truncated).not.toContain("data: [DONE]");
   });
