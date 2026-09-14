@@ -61,7 +61,8 @@ jobs:
             4c3cefbe7a9d49c099f995336d4bac27668f29e7 \
             f7312c29426a66a9797c29b5e65f568e96f9c274 \
             97b604e6ace63d2d8d179e9a4d22cd0055db8fde \
-            24475c0e01df7eeaa8eef518a5ac559ea3a8147b
+            24475c0e01df7eeaa8eef518a5ac559ea3a8147b \
+            fc7a852c4d65e9215ce0cf35126c215916ed9f39
           sed -i \
             -e '/# CN mirror for apk (used by builder and runner stages)/d' \
             -e '/mirrors\.aliyun\.com/d' \
