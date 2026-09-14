@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-async function runTransform(input) {
+async function runTransform(input, sourceFormat = FORMATS.OPENAI_RESPONSES) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -15,7 +15,7 @@ async function runTransform(input) {
   const output = stream.pipeThrough(
     createSSETransformStreamWithLogger(
       FORMATS.OPENAI_RESPONSES,
-      FORMATS.OPENAI_RESPONSES,
+      sourceFormat,
       "codex",
       null,
       null,
@@ -65,6 +65,17 @@ describe("OpenAI Responses streaming termination", () => {
     expect(output).not.toContain("event: response.failed");
     expect(output).not.toContain("data: null");
     expect(output).toContain("data: [DONE]");
+  });
+
+  it("terminates a Responses-to-Chat-Completions stream with DONE", async () => {
+    const output = await runTransform([
+      `event: response.completed`,
+      `data: ${JSON.stringify({ type: "response.completed", response: { status: "completed" } })}`,
+      "",
+    ].join("\n"), FORMATS.OPENAI);
+
+    expect(output).toContain('"finish_reason":"stop"');
+    expect(output.match(/data: \[DONE\]/g)).toHaveLength(1);
   });
 
   it("does not add response.failed when a Responses stream sends response.done", async () => {

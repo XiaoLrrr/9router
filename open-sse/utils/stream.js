@@ -234,7 +234,7 @@ export function createSSEStream(options = {}) {
             sseEmittedCount++;
           }
 
-          if (keepsOpenAIResponsesFormat && !streamDoneSent) {
+          if ((keepsOpenAIResponsesFormat || sourceFormat === FORMATS.OPENAI) && !streamDoneSent) {
             const doneOutput = "data: [DONE]\n\n";
             reqLogger?.appendConvertedChunk?.(doneOutput);
             controller.enqueue(sharedEncoder.encode(doneOutput));
@@ -441,6 +441,12 @@ export function createSSEStream(options = {}) {
           reqLogger?.appendConvertedChunk?.(doneOutput);
           controller.enqueue(sharedEncoder.encode(doneOutput));
           openAIResponsesDoneSent = true;
+          streamDoneSent = true;
+        }
+
+        if (sourceFormat === FORMATS.OPENAI && !streamDoneSent) {
+          reqLogger?.appendConvertedChunk?.(SSE_DONE);
+          controller.enqueue(sharedEncoder.encode(SSE_DONE));
           streamDoneSent = true;
         }
 
