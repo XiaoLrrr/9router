@@ -571,4 +571,10 @@ export function openaiResponsesToOpenAIResponse(chunk, state) {
 
 // Register both directions
 register(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, null, openaiToOpenAIResponsesResponse);
-register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, null, openaiResponsesToOpenAIResponse);
+register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, null, (chunk, state) => {
+  const translated = openaiResponsesToOpenAIResponse(chunk, state);
+  const terminal = ["response.completed", "response.done", "response.failed", "error"].includes(chunk?.type || chunk?.event);
+  if (!translated || !terminal || state.openAIDoneSent) return translated;
+  state.openAIDoneSent = true;
+  return [translated, { done: true }];
+});
