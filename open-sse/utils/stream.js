@@ -471,7 +471,8 @@ export function createSSEStream(options = {}) {
           openAIResponsesTerminalSeen = true;
         }
 
-        if (keepsOpenAIResponsesFormat && !openAIResponsesDoneSent && !streamDoneSent) {
+        const translatedOpenAIResponsesDone = sourceFormat === FORMATS.OPENAI_RESPONSES && streamDoneSent;
+        if ((keepsOpenAIResponsesFormat || translatedOpenAIResponsesDone) && !openAIResponsesDoneSent) {
           const doneOutput = "data: [DONE]\n\n";
           reqLogger?.appendConvertedChunk?.(doneOutput);
           controller.enqueue(sharedEncoder.encode(doneOutput));

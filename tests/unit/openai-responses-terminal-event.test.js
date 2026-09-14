@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
-async function runTransform(input, sourceFormat = FORMATS.OPENAI_RESPONSES) {
+async function runTransform(input, sourceFormat = FORMATS.OPENAI_RESPONSES, targetFormat = FORMATS.OPENAI_RESPONSES) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -14,7 +14,7 @@ async function runTransform(input, sourceFormat = FORMATS.OPENAI_RESPONSES) {
 
   const output = stream.pipeThrough(
     createSSETransformStreamWithLogger(
-      FORMATS.OPENAI_RESPONSES,
+      targetFormat,
       sourceFormat,
       "codex",
       null,
@@ -87,6 +87,22 @@ describe("OpenAI Responses streaming termination", () => {
 
     expect(output).toContain("partial");
     expect(output).not.toContain("data: [DONE]");
+  });
+
+  it("only terminates a CommandCode-to-Responses stream after upstream DONE", async () => {
+    const chunks = [
+      `data: ${JSON.stringify({ id: "chatcmpl_test", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "ok" }, finish_reason: null }] })}`,
+      `data: ${JSON.stringify({ id: "chatcmpl_test", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
+      "",
+    ].join("\n");
+
+    const completed = await runTransform(`${chunks}data: [DONE]\n\n`, FORMATS.OPENAI_RESPONSES, FORMATS.COMMANDCODE);
+    const truncated = await runTransform(chunks, FORMATS.OPENAI_RESPONSES, FORMATS.COMMANDCODE);
+
+    expect(completed).toContain("event: response.completed");
+    expect(completed.indexOf("event: response.completed")).toBeLessThan(completed.indexOf("data: [DONE]"));
+    expect(completed.match(/data: \[DONE\]/g)).toHaveLength(1);
+    expect(truncated).not.toContain("data: [DONE]");
   });
 
   it("does not add response.failed when a Responses stream sends response.done", async () => {
